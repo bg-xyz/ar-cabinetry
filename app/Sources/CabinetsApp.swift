@@ -32,7 +32,8 @@ struct ContentView: View {
         switch ar.phase {
         case .start:
             Panel {
-                Text("Make Room").font(.largeTitle.bold())
+                Text("Plywise").font(.largeTitle.bold())
+                Text("Make room.").font(.title3.weight(.semibold)).foregroundStyle(.secondary)
                 Text("Scan your room, tap a wall, and see a real cabinet built for that space, life-size, in the room.")
                     .font(.callout).foregroundStyle(.secondary)
                 Button { ar.startScan() } label: {

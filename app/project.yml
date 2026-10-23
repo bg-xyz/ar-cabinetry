@@ -24,7 +24,7 @@ targets:
     info:
       path: Info.plist
       properties:
-        CFBundleDisplayName: Make Room
+        CFBundleDisplayName: Plywise
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSCameraUsageDescription: The camera and LiDAR scanner measure your room so your cabinets fit and appear in place.

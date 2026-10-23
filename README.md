@@ -1,6 +1,6 @@
-# Make Room
+# Plywise
 
-**Scan a room with your iPhone, get modern European cabinetry designed for that exact space, see it life-size in AR, and send CNC-ready files to a shop.**
+*Make room.* **Scan a room with your iPhone, get modern European cabinetry designed for that exact space, see it life-size in AR, and send CNC-ready files to a shop.**
 
 Contemporary Euro cabinets (vanities, built-ins, closets, bookcases) are all the same parametric box, assembled in different combinations of doors and drawers. This project turns that idea into code:
 
