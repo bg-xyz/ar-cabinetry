@@ -7,7 +7,11 @@
       1525
     ],
     "verify": "Nominal. Measure the real sheet with calipers and put that number here; every dado width comes from it.",
-    "plies": 13
+    "plies": 13,
+    "longSheet": [
+      2440,
+      1220
+    ]
   },
   "bb15": {
     "name": "Baltic birch 15mm (5/8\")",
@@ -17,7 +21,11 @@
       1525
     ],
     "verify": "Nominal; measure.",
-    "plies": 11
+    "plies": 11,
+    "longSheet": [
+      2440,
+      1220
+    ]
   },
   "bb12": {
     "name": "Baltic birch 12mm (1/2\")",
@@ -27,7 +35,11 @@
       1525
     ],
     "verify": "Nominal; measure.",
-    "plies": 9
+    "plies": 9,
+    "longSheet": [
+      2440,
+      1220
+    ]
   },
   "bb6": {
     "name": "Baltic birch 6mm (1/4\")",
@@ -37,7 +49,11 @@
       1525
     ],
     "verify": "Nominal; measure.",
-    "plies": 5
+    "plies": 5,
+    "longSheet": [
+      2440,
+      1220
+    ]
   },
   "ply34": {
     "name": "Cabinet ply 3/4\" (23/32\", 4x8)",

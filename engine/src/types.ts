@@ -22,7 +22,7 @@ export type WorldOp =
   | { kind: 'cutCircle'; at: Vec3; dia: number; note: string };
 
 export type PartRole =
-  | 'side' | 'bottom' | 'stretcher' | 'back' | 'rail' | 'top'
+  | 'side' | 'bottom' | 'stretcher' | 'back' | 'rail' | 'top' | 'shelf' | 'plinth' | 'endPanel'
   | 'door' | 'drawerFront'
   | 'drawerSide' | 'drawerBoxFront' | 'drawerBack' | 'drawerBottom';
 
@@ -65,6 +65,7 @@ export interface Material {
   thickness: number;
   plies?: number;
   sheet: [number, number];
+  longSheet?: [number, number]; // stocked longer sheet for parts that don't fit the standard one
   verify?: string;
 }
 
@@ -135,6 +136,7 @@ export interface Finish {
   tint?: string;
   roughness: number;
   clearcoat: number;
+  normalScale?: number;   // strength of the surface texture (veneer faces)
 }
 
 export interface Catalog {
@@ -179,7 +181,7 @@ export interface Style {
 
 export type Zone =
   | { type: 'drawer'; size: number | 'fill' }
-  | { type: 'doors'; size: number | 'fill'; count: 1 | 2; hinge?: 'left' | 'right' };
+  | { type: 'doors'; size: number | 'fill'; count: 1 | 2; hinge?: 'left' | 'right'; shelves?: number };
 
 export interface CabinetSpec {
   id: string;
@@ -201,8 +203,11 @@ export interface RunSpec {
   name: string;
   units?: 'mm' | 'in';
   style?: Partial<Style> & { preset?: string };
-  mounting: 'wall-hung';
-  elevation: number;      // carcass bottom above the floor
+  mounting: 'wall-hung' | 'toe-kick' | 'legs';
+  elevation: number;      // carcass bottom above the floor (wall-hung, legs); toe-kick uses kickHeight
+  kickHeight?: number;    // toe-kick: plinth height (default 100mm / 4")
+  kickSetback?: number;   // toe-kick: recess behind the fronts (default 75mm / 3")
+  endPanels?: 'none' | 'both' | 'left' | 'right'; // flush-face applied end panels
   cabinets: CabinetSpec[];
   top?: { material: string; overhangSides: number; overhangFront: number };
   sinks?: SinkSpec[];
@@ -211,7 +216,7 @@ export interface RunSpec {
 
 // Bought items shown in the 3D/AR model but never cut (sinks, faucets, pulls).
 export interface Fixture {
-  kind: 'sink' | 'faucet' | 'pull';
+  kind: 'sink' | 'faucet' | 'pull' | 'leg';
   shape: 'box' | 'round';
   name: string;
   box: Box3;

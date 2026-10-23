@@ -1,0 +1,16 @@
+{
+  "name": "Sideboard 60\" on legs: shelves + drawers, walnut",
+  "units": "in",
+  "style": { "preset": "classic-euro", "frontFinish": "walnut", "carcassFinish": "walnut" },
+  "mounting": "legs",
+  "elevation": 8,
+  "cabinets": [
+    { "id": "A", "width": 20, "height": 24, "depth": 17,
+      "zones": [ { "type": "doors", "size": "fill", "count": 1, "hinge": "left", "shelves": 2 } ] },
+    { "id": "B", "width": 20, "height": 24, "depth": 17,
+      "zones": [ { "type": "drawer", "size": "fill" }, { "type": "drawer", "size": "fill" }, { "type": "drawer", "size": "fill" } ] },
+    { "id": "C", "width": 20, "height": 24, "depth": 17,
+      "zones": [ { "type": "doors", "size": "fill", "count": 1, "hinge": "right", "shelves": 2 } ] }
+  ],
+  "top": { "material": "bb18", "overhangSides": 0, "overhangFront": 0 }
+}

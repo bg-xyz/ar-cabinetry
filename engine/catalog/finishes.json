@@ -1,8 +1,47 @@
 {
-  "birch":        { "name": "Natural Baltic birch (clear matte)", "texture": "birch", "edge": "ply-edge", "tint": "#ffffff", "roughness": 0.55, "clearcoat": 0.15 },
-  "white-oak":    { "name": "White oak veneer (clear matte)", "texture": "white-oak", "edge": "ply-edge", "tint": "#f3e9dc", "roughness": 0.6, "clearcoat": 0.1 },
-  "walnut":       { "name": "Walnut veneer (oil)", "texture": "walnut", "edge": "ply-edge", "tint": "#ffffff", "roughness": 0.5, "clearcoat": 0.2 },
-  "paint-white":  { "name": "Painted warm white (matte)", "paint": "#ece8df", "roughness": 0.62, "clearcoat": 0.0 },
-  "paint-sage":   { "name": "Painted sage green (matte)", "paint": "#8a977f", "roughness": 0.6, "clearcoat": 0.0 },
-  "paint-charcoal": { "name": "Painted charcoal (matte)", "paint": "#33363a", "roughness": 0.58, "clearcoat": 0.0 }
+  "birch": {
+    "name": "Natural Baltic birch (clear matte)",
+    "texture": "birch",
+    "edge": "ply-edge",
+    "tint": "#ffffff",
+    "roughness": 0.55,
+    "clearcoat": 0.15,
+    "normalScale": 0.35
+  },
+  "white-oak": {
+    "name": "White oak veneer (clear matte)",
+    "texture": "white-oak",
+    "edge": "ply-edge",
+    "tint": "#ffffff",
+    "roughness": 0.6,
+    "clearcoat": 0.1,
+    "normalScale": 0.22
+  },
+  "walnut": {
+    "name": "Walnut veneer (oil)",
+    "texture": "walnut",
+    "edge": "ply-edge",
+    "tint": "#ffffff",
+    "roughness": 0.5,
+    "clearcoat": 0.2,
+    "normalScale": 0.4
+  },
+  "paint-white": {
+    "name": "Painted warm white (matte)",
+    "paint": "#ece8df",
+    "roughness": 0.62,
+    "clearcoat": 0.0
+  },
+  "paint-sage": {
+    "name": "Painted sage green (matte)",
+    "paint": "#8a977f",
+    "roughness": 0.6,
+    "clearcoat": 0.0
+  },
+  "paint-charcoal": {
+    "name": "Painted charcoal (matte)",
+    "paint": "#33363a",
+    "roughness": 0.58,
+    "clearcoat": 0.0
+  }
 }

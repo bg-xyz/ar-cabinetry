@@ -6,7 +6,7 @@ export const IN = 25.4;
 const LENGTH_KEYS = new Set([
   'width', 'height', 'depth', 'size', 'elevation', 'overhangSides', 'overhangFront',
   'insetSetback', 'gap', 'endReveal', 'topReveal', 'bottomReveal', 'offsetX', 'setback',
-  'bottom', 'top', 'dadoDepth', 'grooveDepth', 'stretcherWidth',
+  'bottom', 'top', 'dadoDepth', 'grooveDepth', 'stretcherWidth', 'kickHeight', 'kickSetback',
 ]);
 
 function scale(value: unknown, k: number): unknown {

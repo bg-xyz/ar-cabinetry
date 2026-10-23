@@ -11,6 +11,7 @@ export interface CabinetOptions {
   // sink drain + trap: a vertical pipe at x that runs back to the wall; drawers wrap around it
   drain?: { x: number; clearZ: number; width: number };
   backCutouts?: WorldOp[]; // added to the back panel (plumbing)
+  endGap?: { left: boolean; right: boolean }; // an applied end panel sits beside this side: use the full gap
 }
 
 export interface CabinetResult {
@@ -80,7 +81,8 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
   // ---- front layout ---------------------------------------------------------
   const region = inset
     ? { x0: t + style.gap, x1: W - t - style.gap, y0: t + style.gap, y1: H - t - style.gap }
-    : { x0: style.endReveal, x1: W - style.endReveal, y0: style.bottomReveal, y1: H - style.topReveal };
+    : { x0: opts.endGap?.left ? style.gap : style.endReveal, x1: W - (opts.endGap?.right ? style.gap : style.endReveal),
+        y0: style.bottomReveal, y1: H - style.topReveal };
   const heights = splitHeights(spec.zones, region.y1 - region.y0 - style.gap * (spec.zones.length - 1), spec.id, warnings);
 
   let y = region.y0;
@@ -146,6 +148,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
         hw(hinge.plate.name, hingeYs.length);
         gripHardware(1);
       }
+      if (zone.shelves) addShelves(zone.shelves, y0, y1, zi, y0 + (y1 - y0 < 300 ? 70 : 100) - hinge.plate.holeSpacing / 2);
       return;
     }
 
@@ -161,6 +164,33 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     const ceiling = above ? (above.zone.type === 'drawer' ? Math.max(t, inset ? above.y0 - style.gap : above.y0) : above.y0) : H - t;
     addDrawerBox({ zi, runnerY, ceiling });
   });
+
+  // Adjustable shelves: two columns of 5mm pin holes per side on the 32mm grid (lined up
+  // with the hinge plate holes so they never collide), shelves notched around a sink drain.
+  function addShelves(n: number, zy0: number, zy1: number, zi: number, gridOrigin: number) {
+    const lo = Math.max(t, zy0) + 60, hi = Math.min(H - t, zy1) - 60;
+    if (hi - lo < 64) { warnings.push(`${spec.id}: no room for shelves in zone ${zi + 1}`); return; }
+    const rows: number[] = [];
+    for (let y = gridOrigin + Math.ceil((lo - gridOrigin) / 32) * 32; y <= hi; y += 32) rows.push(y);
+    const cols = [D - hs - 37, bs + bt + 37];
+    for (const [side, sx] of [[sideL, t], [sideR, W - t]] as const)
+      for (const z of cols) for (const y of rows) {
+        const clash = side.ops.some((o) => o.kind === 'hole' && Math.abs(o.at[1] - y) < 8 && Math.abs(o.at[2] - z) < 8);
+        if (!clash) side.ops.push({ kind: 'hole', at: [sx, y, z], dia: 5, depth: 10, note: 'shelf pin' });
+      }
+    const z0 = bs + bt + 2, z1 = D - hs - 20;
+    for (let k = 1; k <= n; k++) {
+      const target = lo + ((hi - lo) * k) / (n + 1);
+      const row = rows.reduce((a, b) => (Math.abs(b - target) < Math.abs(a - target) ? b : a));
+      const sy = row + 4; // shelf rests on the pins
+      const d = opts.drain;
+      if (d && d.clearZ + 60 > z1) { warnings.push(`${spec.id}: shelf ${k} would hit the sink drain; left out`); continue; }
+      add({ id: id(`shelf-${zi + 1}-${k}`), name: d ? 'Shelf (notched for drain)' : 'Adjustable shelf', role: 'shelf', material: style.carcass,
+        box: { min: [t + 1, sy, z0], size: [W - 2 * t - 2, t, z1 - z0] }, faceA: '+y', grain: 0, exposed: true,
+        ops: d ? [{ kind: 'cutRect', from: [d.x - d.width / 2, sy + t, z0], to: [d.x + d.width / 2, sy + t, d.clearZ], note: 'drain notch' }] : [] });
+      hw('Shelf pins, 5mm', 4);
+    }
+  }
 
   function addDrawerBox({ zi, runnerY, ceiling }: { zi: number; runnerY: number; ceiling: number }) {
     const r = lookup(cat.runners, style.runner, 'runner');

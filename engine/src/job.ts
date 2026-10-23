@@ -10,7 +10,7 @@ import { mkdirSync, writeFileSync, rmSync, existsSync, copyFileSync, readFileSyn
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { flatten } from './flatten.ts';
-import { nest, placeOp } from './nest.ts';
+import { nest, placeOp, sheetYield } from './nest.ts';
 import type { Sheet } from './nest.ts';
 import { sheetDxf, layerFor } from './dxf.ts';
 import { lookup } from './catalog.ts';
@@ -18,6 +18,7 @@ import { fmtBoth } from './units.ts';
 import type { Catalog, Design, FlatPart, Part, Style } from './types.ts';
 
 const TEXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'textures');
+const CATALOG = join(dirname(fileURLToPath(import.meta.url)), '..', 'catalog');
 const MAPS = ['color', 'normal', 'roughness'] as const;
 
 // Which finish a part shows. Drawer boxes and backs stay natural birch whatever the style.
@@ -34,7 +35,7 @@ function cutBoxes(p: Part): { min: number[]; max: number[] }[] {
 }
 
 export function finishFor(p: Part, s: Style): string {
-  if (p.role === 'door' || p.role === 'drawerFront') return s.frontFinish;
+  if (p.role === 'door' || p.role === 'drawerFront' || p.role === 'endPanel') return s.frontFinish;
   if (p.role === 'top') return s.topFinish;
   if (p.role.startsWith('drawer') || p.role === 'back') return 'birch';
   return s.carcassFinish;
@@ -42,7 +43,16 @@ export function finishFor(p: Part, s: Style): string {
 
 export interface JobOptions { units: 'mm' | 'in'; toolDia: number }
 
-export interface Job { flat: FlatPart[]; sheets: Sheet[]; warnings: string[]; layers: string[] }
+export interface Quote {
+  note: string;
+  sheets: { material: string; name: string; size: [number, number]; count: number; avgYield: number; each: number; total: number }[];
+  hardware: { item: string; qty: number; each: number | null; total: number }[];
+  materialsTotal: number;
+  hardwareTotal: number;
+  cnc: { sheets: number; cutMeters: number; holes: number; pockets: number; tools: string[] };
+}
+
+export interface Job { flat: FlatPart[]; sheets: Sheet[]; warnings: string[]; layers: string[]; quote: Quote }
 
 export function buildJob(design: Design, cat: Catalog, o: JobOptions): Job {
   const warnings = [...design.warnings];
@@ -51,7 +61,49 @@ export function buildJob(design: Design, cat: Catalog, o: JobOptions): Job {
   const sheets = nest(flat, cat, { margin: 15, spacing: o.toolDia + 6 }, warnings);
   const layers = new Set<string>();
   for (const sh of sheets) for (const l of sheetDxf(sh, o.units).layers) layers.add(l);
-  return { flat, sheets, warnings, layers: [...layers].sort() };
+  return { flat, sheets, warnings, layers: [...layers].sort(), quote: quote(design, sheets, cat, [...layers]) };
+}
+
+// What a shop needs to price the job: sheets, hardware, and how much machining there is.
+function quote(design: Design, sheets: Sheet[], cat: Catalog, layers: string[]): Quote {
+  const prices = JSON.parse(readFileSync(join(CATALOG, 'prices.json'), 'utf8')) as {
+    note: string; materials: Record<string, { sheet: number; longSheet?: number }>; hardware: { match: string; each: number }[] };
+  const groups = new Map<string, Quote['sheets'][number]>();
+  for (const sh of sheets) {
+    const m = lookup(cat.materials, sh.material, 'material');
+    const long = !!m.longSheet && sh.size[0] === m.longSheet[0] && sh.size[1] === m.longSheet[1];
+    const key = `${sh.material}${long ? '@long' : ''}`;
+    const each = (long ? prices.materials[sh.material]?.longSheet : prices.materials[sh.material]?.sheet) ?? 0;
+    const g = groups.get(key) ?? { material: sh.material, name: m.name, size: sh.size, count: 0, avgYield: 0, each, total: 0 };
+    g.avgYield = (g.avgYield * g.count + sheetYield(sh)) / (g.count + 1);
+    g.count++;
+    g.total = g.count * each;
+    groups.set(key, g);
+  }
+  const hardware = design.hardware.map((h) => {
+    const p = prices.hardware.find((x) => h.item.toLowerCase().includes(x.match.toLowerCase()));
+    return { item: h.item, qty: h.qty, each: p?.each ?? null, total: (p?.each ?? 0) * h.qty };
+  });
+  let cut = 0, holes = 0, pockets = 0;
+  for (const sh of sheets) for (const pl of sh.placements) {
+    cut += 2 * (pl.w + pl.h);
+    for (const op of pl.part.ops) {
+      if (op.kind === 'hole') holes++;
+      else if (op.kind === 'pocket') pockets++;
+      else if (op.kind === 'cutRect') cut += 2 * (op.x1 - op.x0 + op.y1 - op.y0);
+      else cut += Math.PI * op.dia;
+    }
+  }
+  const tools = [...new Set(layers.filter((l) => l.startsWith('DRILL_')).map((l) => `${l.split('_')[1].replace('p', '.')}mm drill`))];
+  if (layers.some((l) => l.startsWith('POCKET_'))) tools.push('end mill (pockets)');
+  tools.push('compression bit (cut-outs + profiles)');
+  const sheetsOut = [...groups.values()];
+  return {
+    note: prices.note, sheets: sheetsOut, hardware,
+    materialsTotal: sheetsOut.reduce((a, s) => a + s.total, 0),
+    hardwareTotal: hardware.reduce((a, h) => a + h.total, 0),
+    cnc: { sheets: sheets.length, cutMeters: cut / 1000, holes, pockets, tools },
+  };
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
@@ -81,6 +133,7 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
     textures: Object.fromEntries(textureKeys.map((k) => [k, Object.fromEntries(MAPS.map((m) => [m, `textures/${k}/${m}.jpg`]))])),
   };
   put('parts.json', JSON.stringify(parts3d, null, 1));
+  put('quote.json', JSON.stringify(job.quote, null, 1));
   for (const k of textureKeys) {
     mkdirSync(join(dir, 'textures', k), { recursive: true });
     for (const m of MAPS) copyFileSync(join(TEXTURES, k, `${m}.jpg`), join(dir, 'textures', k, `${m}.jpg`));
@@ -110,6 +163,17 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
   put('jobsheet.html', jobSheet(design, job, cat, o, rows));
   put('preview.html', viewerTemplate.replace('/*PARTS_JSON*/null', () => JSON.stringify(embedded)));
   return written;
+}
+
+const usd = (v: number) => `$${v.toFixed(v < 10 ? 2 : 0)}`;
+function summary(q: Quote): string {
+  return `<table><tr><th>Sheets</th><th>Size (mm)</th><th>Qty</th><th>Avg. yield</th><th>Each</th><th>Total</th></tr>
+${q.sheets.map((s) => `<tr><td>${esc(s.name)}</td><td>${s.size[0]} &times; ${s.size[1]}</td><td>${s.count}</td><td>${Math.round(s.avgYield * 100)}%</td><td>${usd(s.each)}</td><td>${usd(s.total)}</td></tr>`).join('')}
+<tr><th colspan="5">Plywood</th><th>${usd(q.materialsTotal)}</th></tr>
+<tr><th colspan="5">Hardware (see list below)</th><th>${usd(q.hardwareTotal)}</th></tr>
+<tr><th colspan="5">Materials + hardware estimate</th><th>${usd(q.materialsTotal + q.hardwareTotal)}</th></tr></table>
+<p>CNC: <b>${q.cnc.sheets}</b> sheets, <b>${q.cnc.cutMeters.toFixed(1)} m</b> of through-cuts, <b>${q.cnc.holes}</b> holes, <b>${q.cnc.pockets}</b> pockets. Bits: ${q.cnc.tools.map(esc).join(', ')}.
+<br><small>${esc(q.note)} Labour, finishing and machine time are not included.</small></p>`;
 }
 
 function sheetSvg(sh: Sheet): string {
@@ -172,10 +236,11 @@ svg.sheet text{font-size:8px;fill:#333}code{background:#f2f2f2;padding:1px 4px;b
 <div>Style: <b>${esc(st.name)}</b> (${st.mount}${st.mount === 'inset' && st.insetSetback ? `, fronts recessed ${st.insetSetback}mm` : ''}, grip: ${st.grip}) &middot;
 Overall ${fmtBoth(ov.width)} W &times; ${fmtBoth(ov.height)} H &times; ${fmtBoth(ov.depth)} D &middot; hung with the carcass bottom ${fmtBoth(ov.elevation)} above the floor</div>
 <div>CNC files: ${job.sheets.length} sheet(s), units <b>${o.units}</b>, laid out for a ${o.toolDia}mm cutter. Generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')}.</div>
+<h2>Job summary</h2>${summary(job.quote)}
 ${job.warnings.length ? `<h2>Warnings</h2><div class="warn"><ul>${job.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
 <h2>Check before cutting</h2><div class="verify"><ul>${[...verify].map((v) => `<li>${v}</li>`).join('')}</ul></div>
-<h2>Hardware</h2><table><tr><th>Qty</th><th>Item</th><th>Buy</th></tr>
-${design.hardware.map((h) => `<tr><td>${h.qty}</td><td>${esc(h.item)}</td><td>${h.buy ? `<a href="${esc(h.buy)}">link</a>` : ''}</td></tr>`).join('')}</table>
+<h2>Hardware</h2><table><tr><th>Qty</th><th>Item</th><th>Est.</th><th>Buy</th></tr>
+${job.quote.hardware.map((h, i) => `<tr><td>${h.qty}</td><td>${esc(h.item)}</td><td>${h.each === null ? '' : usd(h.total)}</td><td>${design.hardware[i].buy ? `<a href="${esc(design.hardware[i].buy!)}">link</a>` : ''}</td></tr>`).join('')}</table>
 <h2>CNC layers</h2><p>Each layer is one toolpath. Suggested order for manual tool changes: all <code>DRILL_*</code> (drill bits), then all <code>POCKET_*</code> (one end mill), then <code>CUT_INSIDE</code>, then <code>CUT_OUTSIDE</code> last.</p>
 <table><tr><th>Layer</th><th>Toolpath</th></tr>${job.layers.map((l) => `<tr><td><code>${l}</code></td><td>${describe(l)}</td></tr>`).join('')}</table>
 <h2>Sheets</h2><div class="sheets">${job.sheets.map((sh, i) => `<figure>${sheetSvg(sh)}<figcaption>Sheet ${i + 1}: ${esc(lookup(cat.materials, sh.material, 'material').name)} (${sh.size[0]} &times; ${sh.size[1]}), ${sh.placements.length} parts</figcaption></figure>`).join('')}</div>

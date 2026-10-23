@@ -104,7 +104,8 @@ function finishMat(finishId, kind) { // kind: 'face' | 'edge'
   } else if (key && DATA.textures[key]) {
     m.map = tex(key, 'color');
     m.normalMap = tex(key, 'normal');
-    m.normalScale.set(0.5, 0.5);
+    const ns = kind === 'face' ? (f.normalScale ?? 0.4) : 0.5;
+    m.normalScale.set(ns, ns);
     m.roughnessMap = tex(key, 'roughness');
     m.color.set(f.tint ?? '#ffffff');
   }
@@ -168,7 +169,7 @@ function partGeometry(p, piece) {
 const choice = { fronts: null, carcass: null, top: null };
 const isFront = (r) => r === 'door' || r === 'drawerFront';
 function finishOf(p) {
-  if (isFront(p.role)) return choice.fronts;
+  if (isFront(p.role) || p.role === 'endPanel') return choice.fronts;
   if (p.role === 'top') return choice.top;
   if (p.role.startsWith('drawer') || p.role === 'back') return 'birch';
   return choice.carcass;
@@ -254,6 +255,9 @@ for (const f of DATA.fixtures ?? []) {
     lever.rotation.z = Math.PI / 2; lever.position.set(30, sy / 2 - 70, 0);
     obj.add(post, spout, lever);
     obj.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
+  } else if (f.kind === 'leg') {
+    obj = new THREE.Mesh(new THREE.CylinderGeometry(sx / 2 - 3, sx / 2, sy, 32), blackMetal);
+    obj.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
   } else {
     obj = new THREE.Mesh(new RoundedBoxGeometry(sx, sy, sz, 4, Math.min(sy, sz) / 2.2), blackMetal);
     obj.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
@@ -303,7 +307,7 @@ function apply() {
       m.rotation.y = ang;
     }
   }
-  for (const f of fixtures) f.visible = f.userData.kind === 'pull' ? showFronts && !open : showTop;
+  for (const f of fixtures) f.visible = f.userData.kind === 'pull' ? showFronts && !open : f.userData.kind === 'leg' ? true : showTop;
   room.visible = $('room').checked;
 }
 for (const id of ['fronts', 'top', 'open', 'room']) $(id).addEventListener('change', apply);

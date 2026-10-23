@@ -36,6 +36,10 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
     throw new Error('Cabinets under one countertop must share height and depth');
 
   const ft = lookup(cat.materials, style.fronts, 'material').thickness;
+  const kickH = spec.kickHeight ?? 100, kickBack = spec.kickSetback ?? 75;
+  const elev = spec.mounting === 'toe-kick' ? kickH : spec.elevation;
+  const ends = spec.endPanels ?? 'none';
+  const panelL = ends === 'both' || ends === 'left', panelR = ends === 'both' || ends === 'right';
   const frontDepth = style.mount === 'overlay' ? ft : 0;
   const topT = spec.top ? lookup(cat.materials, spec.top.material, 'material').thickness : 0;
   const topFrontZ = D + frontDepth + (spec.top?.overhangFront ?? 0);
@@ -76,8 +80,8 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
     // drain + trap run straight back to the wall: nothing may sit behind the drain
     const local = cx - xAt[cab.id];
     const pl = spec.plumbing ?? { width: 300, bottom: 380, top: 640 };
-    const y0 = Math.max(pl.bottom - spec.elevation, t + 40);
-    const y1 = Math.min(pl.top - spec.elevation, H - t - 40);
+    const y0 = Math.max(pl.bottom - elev, t + 40);
+    const y1 = Math.min(pl.top - elev, H - t - 40);
     const backZ = t + bt; // back panel face A plane (see cabinet.ts: back sits at z = t)
     const cut: WorldOp[] = y1 - y0 > 50
       ? [{ kind: 'cutRect', from: [Math.max(local - pl.width / 2, t + 30), y0, backZ], to: [Math.min(local + pl.width / 2, cab.width - t - 30), y1, backZ], note: 'plumbing' }]
@@ -86,33 +90,76 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
     cabOpts[cab.id] = { drain: { x: local, clearZ: cz + 50, width: 220 }, backCutouts: cut };
   }
 
-  for (const c of spec.cabinets) {
-    const r = buildCabinet(c, style, cat, cabOpts[c.id]);
+  spec.cabinets.forEach((c, i) => {
+    const endGap = { left: panelL && i === 0, right: panelR && i === spec.cabinets.length - 1 };
+    const r = buildCabinet(c, style, cat, { ...cabOpts[c.id], endGap });
     parts.push(...r.parts.map((p) => translate(p, xAt[c.id])));
     hardware.push(...r.hardware);
     fixtures.push(...r.fixtures.map((f) => ({ ...f, box: { min: shift(f.box.min, xAt[c.id]), size: f.box.size } })));
     warnings.push(...r.warnings);
+    if (spec.mounting === 'toe-kick') parts.push(...plinth(c.id, xAt[c.id], c.width, c.depth, t, kickH, kickBack, style.carcass));
+  });
+
+  // legs belong to the run: four corners, plus a centre pair under the joint nearest the middle of a long run
+  if (spec.mounting === 'legs') {
+    const xs = [60, totalW - 60];
+    if (totalW > 1200) {
+      const joints = spec.cabinets.slice(1).map((c) => xAt[c.id]);
+      xs.push(joints.length ? joints.reduce((a, b) => (Math.abs(b - totalW / 2) < Math.abs(a - totalW / 2) ? b : a)) : totalW / 2);
+    }
+    for (const lx of xs) for (const lz of [60, D - 60])
+      fixtures.push({ kind: 'leg', shape: 'round', name: 'Cabinet leg', box: { min: [lx - 20, -elev, lz - 20], size: [40, elev, 40] } });
+    hardware.push({ item: `Adjustable cabinet legs, ${Math.round(elev)}mm (${(elev / 25.4).toFixed(1)}") + mounting plates`, qty: xs.length * 2 });
   }
+
+  // flush-face end panels: same finish as the fronts, down to the floor on floor-standing runs
+  const epT = t, epY0 = spec.mounting === 'toe-kick' ? -kickH : 0;
+  const endPanel = (side: 'L' | 'R', x0: number): Part => ({
+    id: `end-panel-${side}`, name: `End panel (${side === 'L' ? 'left' : 'right'})`, cabinet: 'run', role: 'endPanel', material: style.carcass,
+    box: { min: [x0, epY0, 0], size: [epT, H - epY0, D + frontDepth] }, faceA: side === 'L' ? '-x' : '+x', grain: 1, exposed: true, ops: [],
+  });
+  if (panelL) parts.push(endPanel('L', -epT));
+  if (panelR) parts.push(endPanel('R', totalW));
+  if (panelL || panelR) hardware.push({ item: 'Screws, end panel to cabinet side (from inside, 1-1/4")', qty: 6 * (Number(panelL) + Number(panelR)) });
 
   if (spec.top) {
     const oh = spec.top.overhangSides;
+    const left = -oh - (panelL ? epT : 0), right = totalW + oh + (panelR ? epT : 0);
     parts.push({
       id: 'top', name: 'Countertop', cabinet: 'run', role: 'top', material: spec.top.material,
-      box: { min: [-oh, H, 0], size: [totalW + 2 * oh, topT, topFrontZ] },
+      box: { min: [left, H, 0], size: [right - left, topT, topFrontZ] },
       faceA: '+y', grain: 0, exposed: true, ops: topOps,
     });
   }
 
   hardware.push(
     { item: 'Confirmat / cabinet screws (carcass, 7x50mm)', qty: spec.cabinets.length * 16 },
-    { item: 'Wall screws for hanging rail (into studs)', qty: spec.cabinets.length * 4 },
+    { item: spec.mounting === 'wall-hung' ? 'Wall screws for hanging rail (into studs)' : 'Screws to secure cabinet to wall (into studs)', qty: spec.cabinets.length * (spec.mounting === 'wall-hung' ? 4 : 2) },
   );
   if (spec.cabinets.length > 1) hardware.push({ item: 'Cabinet connector bolts (joining boxes)', qty: (spec.cabinets.length - 1) * 4 });
 
   return {
     spec, style, parts, hardware: mergeHardware(hardware), fixtures, warnings,
-    overall: { width: totalW, height: H + topT, depth: topFrontZ, elevation: spec.elevation },
+    overall: { width: totalW + (panelL ? epT : 0) + (panelR ? epT : 0), height: H + topT, depth: topFrontZ, elevation: elev },
   };
+}
+
+// Toe-kick plinth under one cabinet: a ladder of front rail (set back for toes), back rail
+// and cross pieces, glued and screwed. It sits at y < 0, below the carcass.
+function plinth(cab: string, x0: number, W: number, D: number, t: number, h: number, back: number, material: string): Part[] {
+  const p = (name: string, min: Vec3, size: Vec3, faceA: Part['faceA'], grain: 0 | 1 | 2, exposed: boolean): Part =>
+    ({ id: `${cab}-plinth-${name}`, name: `Plinth ${name}`, cabinet: cab, role: 'plinth', material, box: { min, size }, faceA, grain, exposed, ops: [] });
+  const fz = D - back - t;
+  const out = [
+    p('front', [x0, -h, fz], [W, h, t], '+z', 0, true),
+    p('back', [x0, -h, 0], [W, h, t], '+z', 0, false),
+  ];
+  const n = Math.max(2, Math.ceil(W / 600) + 1);
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + (i === 0 ? 0 : i === n - 1 ? W - t : (W * i) / (n - 1) - t / 2);
+    out.push(p(`cross-${i + 1}`, [cx, -h, t], [t, h, fz - t], '+x', 2, false));
+  }
+  return out;
 }
 
 function mergeHardware(lines: HardwareLine[]): HardwareLine[] {
