@@ -27,7 +27,7 @@ python tools/check_dxf.py ../jobs/vanity-48-run      # independent DXF audit + s
 - `src/cabinet.ts`: **the box primitive + front layout + hardware.** Every hole and dado is placed in 3D world coordinates.
 - `src/run.ts`: cabinets side by side along a wall, plus the countertop, sinks, faucet and plumbing cutouts.
 - `src/flatten.ts`: 3D part → 2D CNC drawing (face A up, grain along length). **Throws** if any operation is off the face or off the part, so bad geometry never reaches a file.
-- `src/nest.ts`: simple shelf nesting. Exposed parts keep their grain; hidden parts may rotate.
+- `src/nest.ts`: MaxRects nesting. Exposed parts keep their grain; hidden parts may rotate; long parts go on the material's 4x8 sheet first.
 - `src/dxf.ts`: R12 DXF, one layer per operation and depth.
 - `src/job.ts`: writes the package. `viewer/preview.html` is the 3D template.
 - `catalog/*.json`: **materials (with ply counts, long sheets), hinges, runners, pulls, sinks, faucets, finishes, prices as data.** Anything not confirmed from Blum is flagged in a `verify` field and printed on the job sheet.
