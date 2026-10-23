@@ -105,15 +105,12 @@ def friends(num, notes):
 
 
 def invite(email):
+    # Always create the tester for this app's group: a tester record that already exists for another app
+    # (e.g. a Ragtime tester) can't be attached directly (409 "Tester(s) cannot be assigned").
     g = friends_group()
-    found = call('GET', f'/betaTesters?filter[email]={email}')['data']
-    if found:
-        call('POST', f"/betaGroups/{g['id']}/relationships/betaTesters", {'data': [{'type': 'betaTesters', 'id': found[0]['id']}]})
-    else:
-        call('POST', '/betaTesters', {'data': {'type': 'betaTesters', 'attributes': {'email': email},
-                                               'relationships': {'betaGroups': {'data': [{'type': 'betaGroups', 'id': g['id']}]}}}})
+    call('POST', '/betaTesters', {'data': {'type': 'betaTesters', 'attributes': {'email': email},
+                                           'relationships': {'betaGroups': {'data': [{'type': 'betaGroups', 'id': g['id']}]}}}})
     print(f'{email} added to Friends (TestFlight emails the invite once a build is approved for external testing)')
-
 
 if __name__ == '__main__':
     cmd = sys.argv[1] if len(sys.argv) > 1 else 'builds'
