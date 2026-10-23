@@ -1,12 +1,13 @@
 # One-time: give the iOS workflow the same Apple signing secrets Ragtime uses (same Apple account,
 # same "GitHub Actions" App Store Connect API key), so it can sign and upload to TestFlight.
 # Run AFTER the App Store Connect app record for xyz.bg.cabinets exists, or the first upload fails.
+# Key ids live outside the repo in %USERPROFILE%\.config\ragtime\asc.json: { "issuer": "...", "keyId": "..." }
 $ErrorActionPreference = 'Stop'
-$cfg    = Get-Content -Raw (Join-Path $env:USERPROFILE '.configagtimesc.json') | ConvertFrom-Json
+$dir    = Join-Path $env:USERPROFILE '.config\ragtime'
+$cfg    = Get-Content -Raw (Join-Path $dir 'asc.json') | ConvertFrom-Json
 $issuer = $cfg.issuer
 $keyId  = $cfg.keyId
 $repo   = 'bg-xyz/ar-cabinetry'
-$dir    = Join-Path $env:USERPROFILE '.config\ragtime'
 
 gh secret set APP_STORE_CONNECT_ISSUER_ID      --repo $repo --body $issuer
 gh secret set APP_STORE_CONNECT_KEY_IDENTIFIER --repo $repo --body $keyId
