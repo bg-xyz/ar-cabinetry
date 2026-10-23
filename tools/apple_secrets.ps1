@@ -11,6 +11,7 @@ $repo   = 'bg-xyz/ar-cabinetry'
 
 gh secret set APP_STORE_CONNECT_ISSUER_ID      --repo $repo --body $issuer
 gh secret set APP_STORE_CONNECT_KEY_IDENTIFIER --repo $repo --body $keyId
-Get-Content -Raw (Join-Path $dir "AuthKey_$keyId.p8") | gh secret set APP_STORE_CONNECT_PRIVATE_KEY --repo $repo
-Get-Content -Raw (Join-Path $dir 'codemagic_cert_key') | gh secret set CERTIFICATE_PRIVATE_KEY --repo $repo
+# key files go in byte for byte: piping through PowerShell 5 re-encodes them and breaks the signing step
+cmd /c "gh secret set APP_STORE_CONNECT_PRIVATE_KEY --repo $repo < `"$dir\AuthKey_$keyId.p8`""
+cmd /c "gh secret set CERTIFICATE_PRIVATE_KEY --repo $repo < `"$dir\codemagic_cert_key`""
 gh secret list --repo $repo
