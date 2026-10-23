@@ -21,6 +21,18 @@ const TEXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'textures')
 const MAPS = ['color', 'normal', 'roughness'] as const;
 
 // Which finish a part shows. Drawer boxes and backs stay natural birch whatever the style.
+// Rectangular through-cuts (notches, plumbing holes) as 3D boxes, so the model shows them.
+function cutBoxes(p: Part): { min: number[]; max: number[] }[] {
+  const n = ({ x: 0, y: 1, z: 2 } as const)[p.faceA[1] as 'x' | 'y' | 'z'];
+  return p.ops.flatMap((o) => {
+    if (o.kind !== 'cutRect') return [];
+    const min = [0, 1, 2].map((a) => Math.min(o.from[a], o.to[a]));
+    const max = [0, 1, 2].map((a) => Math.max(o.from[a], o.to[a]));
+    min[n] = p.box.min[n]; max[n] = p.box.min[n] + p.box.size[n];
+    return [{ min, max }];
+  });
+}
+
 export function finishFor(p: Part, s: Style): string {
   if (p.role === 'door' || p.role === 'drawerFront') return s.frontFinish;
   if (p.role === 'top') return s.topFinish;
@@ -62,6 +74,7 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
       grainAxis: p.grain,
       thicknessAxis: ({ x: 0, y: 1, z: 2 } as const)[p.faceA[1] as 'x' | 'y' | 'z'],
       plies: lookup(cat.materials, p.material, 'material').plies ?? 7,
+      cuts: cutBoxes(p),
     })),
     fixtures: design.fixtures,
     finishes,

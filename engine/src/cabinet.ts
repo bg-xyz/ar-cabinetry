@@ -8,7 +8,8 @@ import type {
 } from './types.ts';
 
 export interface CabinetOptions {
-  clearFromBack?: number;  // nothing may sit behind this z (sink drain + trap)
+  // sink drain + trap: a vertical pipe at x that runs back to the wall; drawers wrap around it
+  drain?: { x: number; clearZ: number; width: number };
   backCutouts?: WorldOp[]; // added to the back panel (plumbing)
 }
 
@@ -168,11 +169,10 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     if (ds > r.maxSideThickness) warnings.push(`${spec.id}: drawer sides ${ds}mm are thicker than ${r.name} allows (${r.maxSideThickness}mm)`);
 
     const runnerFront = D - hs - r.frontSetback;
-    const backLimit = Math.max(bs + bt + 5, opts.clearFromBack ?? 0);
+    const backLimit = bs + bt + 5;
     const len = [...r.lengths].reverse().find((l) => runnerFront - l >= backLimit);
     if (!len) {
-      warnings.push(`${spec.id}: drawer ${zi + 1} has no room for a runner (needs ${r.lengths[0]}mm, has ${Math.round(runnerFront - backLimit)}mm). ` +
-        (opts.clearFromBack ? 'The sink drain is in the way: use doors here, or a U-drawer (not built yet).' : 'Cabinet is too shallow.'));
+      warnings.push(`${spec.id}: drawer ${zi + 1} has no room for a runner (needs ${r.lengths[0]}mm, has ${Math.round(runnerFront - backLimit)}mm). Cabinet is too shallow.`);
       return;
     }
     const bh = floorTo(ceiling - runnerY - r.topClearance, 5);
@@ -208,14 +208,40 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
       box: { min: [midX0, y0, zf - df], size: [midW, bh, df] }, faceA: '-z', grain: 0, exposed: false,
       ops: [{ kind: 'pocket', from: [midX0, grooveY[0], zf - df], to: [midX0 + midW, grooveY[1], zf - df], depth: gd, note: 'bottom groove' }] });
     const backY0 = y0 + rec + bb;
-    add({ id: id(`${p}-box-back`), name: 'Drawer box back', role: 'drawerBack', material: style.drawerBox,
-      box: { min: [midX0, backY0, zb], size: [midW, y1 - backY0, df] }, faceA: '-z', grain: 0, exposed: false,
-      ops: [x0 + r.rearHook.fromSide, x1 - r.rearHook.fromSide].map((hx): WorldOp => ({
-        kind: 'hole', at: [hx, backY0 + r.rearHook.aboveBottomPanel, zb], dia: r.rearHook.dia, depth: r.rearHook.depth, note: 'runner rear hook',
-      })) });
-    add({ id: id(`${p}-bottom`), name: 'Drawer bottom', role: 'drawerBottom', material: style.drawerBottom,
+    const backH = y1 - backY0;
+    const hook = (hx: number): WorldOp => ({
+      kind: 'hole', at: [hx, backY0 + r.rearHook.aboveBottomPanel, zb], dia: r.rearHook.dia, depth: r.rearHook.depth, note: 'runner rear hook' });
+
+    // U-drawer: if the sink drain runs through this drawer, notch the back around it.
+    // Two short backs, two notch walls and a cross piece, all sitting on a notched bottom.
+    const d = opts.drain;
+    const notch = d && zb < d.clearZ ? { x0: d.x - d.width / 2, x1: d.x + d.width / 2, z: d.clearZ } : null;
+    if (notch) {
+      const roomL = notch.x0 - df - midX0, roomR = midX0 + midW - (notch.x1 + df);
+      if (roomL < 50 || roomR < 50 || notch.z + df > zf - df - 60) {
+        warnings.push(`${spec.id}: drawer ${zi + 1} can't wrap the sink drain (cabinet too narrow or drain too far forward); use doors here`);
+        return;
+      }
+      add({ id: id(`${p}-box-back-L`), name: 'Drawer box back (left of notch)', role: 'drawerBack', material: style.drawerBox,
+        box: { min: [midX0, backY0, zb], size: [roomL, backH, df] }, faceA: '-z', grain: 0, exposed: false, ops: [hook(x0 + r.rearHook.fromSide)] });
+      add({ id: id(`${p}-box-back-R`), name: 'Drawer box back (right of notch)', role: 'drawerBack', material: style.drawerBox,
+        box: { min: [notch.x1 + df, backY0, zb], size: [roomR, backH, df] }, faceA: '-z', grain: 0, exposed: false, ops: [hook(x1 - r.rearHook.fromSide)] });
+      for (const [nm, nx] of [['L', notch.x0 - df], ['R', notch.x1]] as const)
+        add({ id: id(`${p}-notch-wall-${nm}`), name: `Drawer notch wall ${nm}`, role: 'drawerBack', material: style.drawerBox,
+          box: { min: [nx, backY0, zb], size: [df, backH, notch.z - zb] }, faceA: '+x', grain: 2, exposed: false, ops: [] });
+      add({ id: id(`${p}-notch-front`), name: 'Drawer notch front', role: 'drawerBack', material: style.drawerBox,
+        box: { min: [notch.x0 - df, backY0, notch.z], size: [notch.x1 - notch.x0 + 2 * df, backH, df] }, faceA: '-z', grain: 0, exposed: false, ops: [] });
+      hw('U-drawer: glue + 1-1/4" screws for notch walls (pre-drill)', 1);
+    } else {
+      add({ id: id(`${p}-box-back`), name: 'Drawer box back', role: 'drawerBack', material: style.drawerBox,
+        box: { min: [midX0, backY0, zb], size: [midW, backH, df] }, faceA: '-z', grain: 0, exposed: false,
+        ops: [hook(x0 + r.rearHook.fromSide), hook(x1 - r.rearHook.fromSide)] });
+    }
+    const botY = y0 + rec + bb;
+    add({ id: id(`${p}-bottom`), name: notch ? 'Drawer bottom (notched)' : 'Drawer bottom', role: 'drawerBottom', material: style.drawerBottom,
       box: { min: [x0 + ds - gd + 0.5, y0 + rec, zb], size: [x1 - x0 - 2 * ds + 2 * gd - 1, bb, zf - df + gd - 0.5 - zb] },
-      faceA: '+y', grain: null, exposed: false, ops: [] });
+      faceA: '+y', grain: null, exposed: false,
+      ops: notch ? [{ kind: 'cutRect', from: [notch.x0, botY, zb], to: [notch.x1, botY, notch.z], note: 'drain notch' }] : [] });
 
     // runner screw holes on the 32mm grid, front hole on the 37mm line
     const hy = runnerY + r.holeAboveRunnerBottom;

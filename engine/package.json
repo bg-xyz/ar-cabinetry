@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Parametric Euro cabinet engine: run spec -> parts -> AR model + CNC job package",
   "scripts": {
-    "samples": "node src/cli.ts specs/vanity-30-doors.json && node src/cli.ts specs/vanity-48-run.json && node src/cli.ts specs/vanity-30-recessed.json",
+    "samples": "node src/samples.ts",
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc"
   },

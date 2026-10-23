@@ -128,9 +128,23 @@ test('drawer box follows Blum: inside width = opening - 42, length = runner - 10
   assert.ok(cat.runners[d.style.runner].lengths.map((l) => l - 10).includes(side.box.size[2]));
 });
 
-test('a drawer under a sink is refused with a warning', () => {
-  const d = designRun({ name: 's', units: 'in', mounting: 'wall-hung', elevation: 10, cabinets: [{ id: 'A', width: 30, height: 20, depth: 20, zones: [{ type: 'drawer', size: 'fill' }] }],
+test('drawers under a sink become U-drawers that clear the drain', () => {
+  const d = designRun({ name: 's', units: 'in', mounting: 'wall-hung', elevation: 10,
+    cabinets: [{ id: 'A', width: 30, height: 20, depth: 20, zones: [{ type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }] }],
     top: { material: 'bb18', overhangSides: 0, overhangFront: 0.5 }, sinks: [{ cabinet: 'A', sink: 'vessel-round-16', faucet: 'vessel-single-hole' }] }, cat);
-  assert.ok(d.warnings.some((w) => w.includes('drain')));
-  assert.ok(!d.parts.some((p) => p.role === 'drawerSide'));
+  const drainHole = d.parts.find((p) => p.role === 'top')!.ops.find((o) => o.note === 'sink drain');
+  assert.ok(drainHole && drainHole.kind === 'cutCircle');
+  const [dx, , dz] = drainHole.at;
+  assert.equal(d.parts.filter((p) => p.id.includes('notch-front')).length, 2);
+  const pipe = 25; // radius of tailpiece + slip nut
+  for (const p of d.parts.filter((q) => q.role.startsWith('drawer') && q.role !== 'drawerFront')) {
+    const hitsX = dx + pipe > p.box.min[0] && dx - pipe < p.box.min[0] + p.box.size[0];
+    const hitsZ = dz + pipe > p.box.min[2] && dz - pipe < p.box.min[2] + p.box.size[2];
+    if (p.role === 'drawerBottom') {
+      const cut = p.ops.find((o) => o.kind === 'cutRect');
+      assert.ok(cut && cut.kind === 'cutRect', `${p.id} has no notch`);
+      assert.ok(dx - pipe >= cut.from[0] && dx + pipe <= cut.to[0] && dz + pipe <= cut.to[2], `${p.id} notch misses the drain`);
+    } else assert.ok(!(hitsX && hitsZ), `${p.id} sits on the drain line`);
+  }
+  assert.ok(!d.warnings.some((w) => w.includes('drain')));
 });

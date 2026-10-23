@@ -64,13 +64,13 @@ export function flatten(part: Part, cat: Catalog, overcut: number): FlatPart {
     let x0 = Math.min(U(op.from), U(op.to)), x1 = Math.max(U(op.from), U(op.to));
     let y0 = Math.min(V(op.from), V(op.to)), y1 = Math.max(V(op.from), V(op.to));
     inside(x0, y0, 0, op.note); inside(x1, y1, 0, op.note);
-    if (op.kind === 'cutRect') return { kind: 'cutRect', x0, y0, x1, y1, note: op.note };
-    deep(op.depth, op.note);
-    // pockets that run off an edge get carried past it so the cutter leaves a clean end
+    if (op.kind === 'pocket') deep(op.depth, op.note);
+    // pockets and notches that run off an edge get carried past it so the cutter leaves a clean end
     if (x0 < EPS) x0 = -overcut;
     if (y0 < EPS) y0 = -overcut;
     if (x1 > length - EPS) x1 = length + overcut;
     if (y1 > width - EPS) y1 = width + overcut;
+    if (op.kind === 'cutRect') return { kind: 'cutRect', x0, y0, x1, y1, note: op.note };
     return { kind: 'pocket', x0, y0, x1, y1, depth: op.depth, note: op.note };
   });
 

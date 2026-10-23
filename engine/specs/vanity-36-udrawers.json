@@ -1,0 +1,13 @@
+{
+  "name": "Vanity 36\": two U-drawers around the sink, walnut fronts",
+  "units": "in",
+  "style": { "preset": "classic-euro", "frontFinish": "walnut" },
+  "mounting": "wall-hung",
+  "elevation": 10.25,
+  "cabinets": [
+    { "id": "A", "width": 36, "height": 20, "depth": 20,
+      "zones": [ { "type": "drawer", "size": "fill" }, { "type": "drawer", "size": "fill" } ] }
+  ],
+  "top": { "material": "bb18", "overhangSides": 0, "overhangFront": 0.5 },
+  "sinks": [ { "cabinet": "A", "sink": "vessel-round-16", "faucet": "vessel-single-hole" } ]
+}

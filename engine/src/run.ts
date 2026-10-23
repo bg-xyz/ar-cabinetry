@@ -3,6 +3,7 @@
 
 import { lookup, resolveStyle } from './catalog.ts';
 import { buildCabinet } from './cabinet.ts';
+import type { CabinetOptions } from './cabinet.ts';
 import { specToMm } from './units.ts';
 import type { Catalog, Design, Fixture, HardwareLine, Part, RunSpec, Vec3, WorldOp } from './types.ts';
 
@@ -46,7 +47,7 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
   const totalW = x;
 
   const topOps: WorldOp[] = [];
-  const cabOpts: Record<string, { clearFromBack?: number; backCutouts?: WorldOp[] }> = {};
+  const cabOpts: Record<string, CabinetOptions> = {};
   for (const sk of spec.sinks ?? []) {
     if (!spec.top) throw new Error('A vessel sink needs a countertop (add "top" to the run)');
     const cab = spec.cabinets.find((c) => c.id === sk.cabinet);
@@ -82,7 +83,7 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
       ? [{ kind: 'cutRect', from: [Math.max(local - pl.width / 2, t + 30), y0, backZ], to: [Math.min(local + pl.width / 2, cab.width - t - 30), y1, backZ], note: 'plumbing' }]
       : [];
     if (!cut.length) warnings.push(`${cab.id}: plumbing rough-in (${pl.bottom}-${pl.top}mm above floor) misses the cabinet back; check the hanging height`);
-    cabOpts[cab.id] = { clearFromBack: cz + 50, backCutouts: cut };
+    cabOpts[cab.id] = { drain: { x: local, clearZ: cz + 50, width: 220 }, backCutouts: cut };
   }
 
   for (const c of spec.cabinets) {

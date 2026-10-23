@@ -116,8 +116,31 @@ function finishMat(finishId, kind) { // kind: 'face' | 'edge'
 // the part's grain axis; on edges the plies stack through the thickness.
 const VENEER_TILE = 900;   // mm of veneer per texture tile
 const PLY_PAIRS = 64;      // light/dark ply pairs in one tile of the edge texture
-function partGeometry(p) {
-  const [sx, sy, sz] = p.box.size;
+// A part is drawn as one box, or as several boxes when through-cuts (notches, plumbing
+// holes) are taken out of it. UVs are in world space, so the pieces join seamlessly.
+function subtract(boxes, cut) {
+  const out = [];
+  for (const b of boxes) {
+    const lo = b.min, hi = b.max;
+    if ([0, 1, 2].some((a) => cut.max[a] <= lo[a] || cut.min[a] >= hi[a])) { out.push(b); continue; }
+    const c0 = cut.min.map((v, a) => Math.max(v, lo[a])), c1 = cut.max.map((v, a) => Math.min(v, hi[a]));
+    // slice along x, then y, then z: up to 6 pieces around the cut
+    let rest = { min: [...lo], max: [...hi] };
+    for (let a = 0; a < 3; a++) {
+      if (c0[a] > rest.min[a]) { const piece = { min: [...rest.min], max: [...rest.max] }; piece.max[a] = c0[a]; out.push(piece); rest.min[a] = c0[a]; }
+      if (c1[a] < rest.max[a]) { const piece = { min: [...rest.min], max: [...rest.max] }; piece.min[a] = c1[a]; out.push(piece); rest.max[a] = c1[a]; }
+    }
+  }
+  return out.filter((b) => [0, 1, 2].every((a) => b.max[a] - b.min[a] > 0.01));
+}
+function partPieces(p) {
+  let boxes = [{ min: [...p.box.min], max: p.box.min.map((v, a) => v + p.box.size[a]) }];
+  for (const c of p.cuts ?? []) boxes = subtract(boxes, c);
+  return boxes;
+}
+function partGeometry(p, piece) {
+  const size = [0, 1, 2].map((a) => piece.max[a] - piece.min[a]);
+  const [sx, sy, sz] = size;
   const g = new THREE.BoxGeometry(sx, sy, sz);
   const pos = g.attributes.position, uv = g.attributes.uv;
   const n = p.thicknessAxis, inPlane = [0, 1, 2].filter((a) => a !== n);
@@ -130,11 +153,11 @@ function partGeometry(p) {
   for (let f = 0; f < 6; f++) {
     const m = f >> 1;
     for (let i = f * 4; i < f * 4 + 4; i++) {
-      const w = [pos.getX(i) + sx / 2, pos.getY(i) + sy / 2, pos.getZ(i) + sz / 2]; // 0..size
+      const w = [pos.getX(i) + sx / 2 + piece.min[0], pos.getY(i) + sy / 2 + piece.min[1], pos.getZ(i) + sz / 2 + piece.min[2]]; // world mm
       if (m === n) uv.setXY(i, w[grain] / VENEER_TILE + ou, w[across] / VENEER_TILE + ovv);
       else {
         const along = [0, 1, 2].find((a) => a !== m && a !== n);
-        uv.setXY(i, w[along] / VENEER_TILE + ou, w[n] / plyTile + ovv);
+        uv.setXY(i, w[along] / VENEER_TILE + ou, (w[n] - p.box.min[n]) / plyTile + ovv);
       }
     }
   }
@@ -161,18 +184,26 @@ group.position.y = ov.elevation;
 scene.add(group);
 const meshes = [];
 for (const p of DATA.parts) {
-  const mesh = new THREE.Mesh(partGeometry(p));
+  // one group per part (moves as a unit when doors open); one mesh per piece
+  const node = new THREE.Group();
   const [sx, sy, sz] = p.box.size, [mx, my, mz] = p.box.min;
-  mesh.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
-  mesh.castShadow = mesh.receiveShadow = true;
-  mesh.userData = { ...p, home: mesh.position.clone() };
-  group.add(mesh);
-  meshes.push(mesh);
+  node.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
+  for (const piece of partPieces(p)) {
+    const mesh = new THREE.Mesh(partGeometry(p, piece));
+    mesh.position.set((piece.min[0] + piece.max[0]) / 2 - node.position.x, (piece.min[1] + piece.max[1]) / 2 - node.position.y, (piece.min[2] + piece.max[2]) / 2 - node.position.z);
+    mesh.castShadow = mesh.receiveShadow = true;
+    mesh.userData = p;
+    node.add(mesh);
+  }
+  node.userData = { ...p, home: node.position.clone() };
+  group.add(node);
+  meshes.push(node);
 }
 function applyFinishes() {
-  for (const m of meshes) {
-    const p = m.userData, fid = finishOf(p);
-    m.material = [0, 1, 2, 3, 4, 5].map((f) => finishMat(fid, (f >> 1) === p.thicknessAxis ? 'face' : 'edge'));
+  for (const node of meshes) {
+    const p = node.userData, fid = finishOf(p);
+    const mats = [0, 1, 2, 3, 4, 5].map((f) => finishMat(fid, (f >> 1) === p.thicknessAxis ? 'face' : 'edge'));
+    for (const m of node.children) m.material = mats;
   }
 }
 
@@ -283,7 +314,7 @@ const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), hover = $('hover
 renderer.domElement.addEventListener('pointermove', (e) => {
   mouse.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1);
   ray.setFromCamera(mouse, camera);
-  const hit = ray.intersectObjects(meshes.filter((m) => m.visible), false)[0];
+  const hit = ray.intersectObjects(meshes.filter((m) => m.visible), true)[0];
   hover.style.display = hit ? 'block' : 'none';
   if (hit) { const p = hit.object.userData; hover.textContent = `${p.id} - ${p.name} (${p.box.size.map((v) => v.toFixed(0)).join(' x ')} mm)`; }
 });
