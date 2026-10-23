@@ -58,6 +58,7 @@ Three layers, all in code:
 - Run: countertop, vessel sink + faucet (auto-placed so the faucet fits), plumbing cut-out in the back, multi-box runs.
 - Output: layered DXF per sheet (MaxRects nesting, grain-aware, long 4x8 sheets for long parts), job sheet, cut list, **quote** (sheets + yield, plywood + hardware estimate, CNC stats), `parts.json` for AR, single-file 3D preview.
 - **Realistic finishes:** CC0 scanned textures (Baltic birch, white oak, walnut, true-scale ply edges), PBR lighting, live finish picker. These are the same assets the app will use.
+- **Planner + on-device engine (2026-10-23):** `engine/src/planner.ts` auto-fits a vanity to a wall's clear space (double sink at 60"+); `npm run bundle` -> `app/Resources/plywise-engine.js` (re-run after any engine change, then push). App 0.2 plans on the phone from the scan.
 - **Next:** the iPhone app, see `APP_PLAN.md`. Engine leftovers: half overlay / shared-gable runs (closets, bookcases), tall units + hanging rails, fluted fronts, Blum numbers verified by Blake, hinge test cut.
 
 ### App + repo status (2026-10-23)
