@@ -125,3 +125,5 @@ Blake has an **iPhone 12 Pro** (LiDAR, RoomPlan supported). He OK'd the placehol
 - .xyz names checked via the CentralNic RDAP server (404 = unregistered; premium/reserved status unknown).
 
 **Waiting on Blake:** sign in to App Store Connect in Chrome (then Claude creates the app record, sets the secrets, builds to TestFlight); pick a license; pick a name.
+
+**Later (same day):** Blake picked **Apache-2.0** and the name **Make Room** (makeroom.xyz; Blake registers it). Added `LICENSE`, renamed user-facing text (home-screen name "Make Room"). App Store Connect: "Make Room" was taken, so the record is **"Make Room: Custom Cabinets"** (Apple ID 6826390742). Bundle ID registered by API; internal TestFlight group "Make Room Crew" (API) + Blake added (web; the API refused internal testers). First signed build failed: PowerShell 5 piping re-encoded the key secrets; re-set byte for byte from bash, fixed the script. **Build 6 uploaded to TestFlight** (one harmless warning: arkit requirement = no Vision Pro).
