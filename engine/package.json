@@ -8,10 +8,12 @@
     "samples": "node src/samples.ts",
     "app-assets": "node src/app_assets.ts",
     "test": "node --test test/*.test.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "bundle": "esbuild src/browser.ts --bundle --format=iife --target=es2020 --minify --legal-comments=none --outfile=../app/Resources/plywise-engine.js"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "esbuild": "^0.24.2",
     "typescript": "^5.9.3"
   }
 }

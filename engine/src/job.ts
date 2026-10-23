@@ -15,31 +15,12 @@ import type { Sheet } from './nest.ts';
 import { sheetDxf, layerFor } from './dxf.ts';
 import { lookup } from './catalog.ts';
 import { fmtBoth } from './units.ts';
-import type { Catalog, Design, FlatPart, Part, Style } from './types.ts';
+import { model3d, TEXTURE_MAPS } from './model3d.ts';
+import type { Catalog, Design, FlatPart } from './types.ts';
 
 const TEXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'textures');
 const CATALOG = join(dirname(fileURLToPath(import.meta.url)), '..', 'catalog');
-const MAPS = ['color', 'normal', 'roughness'] as const;
-
-// Which finish a part shows. Drawer boxes and backs stay natural birch whatever the style.
-// Rectangular through-cuts (notches, plumbing holes) as 3D boxes, so the model shows them.
-function cutBoxes(p: Part): { min: number[]; max: number[] }[] {
-  const n = ({ x: 0, y: 1, z: 2 } as const)[p.faceA[1] as 'x' | 'y' | 'z'];
-  return p.ops.flatMap((o) => {
-    if (o.kind !== 'cutRect') return [];
-    const min = [0, 1, 2].map((a) => Math.min(o.from[a], o.to[a]));
-    const max = [0, 1, 2].map((a) => Math.max(o.from[a], o.to[a]));
-    min[n] = p.box.min[n]; max[n] = p.box.min[n] + p.box.size[n];
-    return [{ min, max }];
-  });
-}
-
-export function finishFor(p: Part, s: Style): string {
-  if (p.role === 'door' || p.role === 'drawerFront' || p.role === 'endPanel') return s.frontFinish;
-  if (p.role === 'top') return s.topFinish;
-  if (p.role.startsWith('drawer') || p.role === 'back') return 'birch';
-  return s.carcassFinish;
-}
+const MAPS = TEXTURE_MAPS;
 
 export interface JobOptions { units: 'mm' | 'in'; toolDia: number }
 
@@ -108,29 +89,8 @@ function quote(design: Design, sheets: Sheet[], cat: Catalog, layers: string[]):
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
 
-// 3D model for the preview and the AR app: boxes + which way the grain and plies run
-export function model3d(design: Design, cat: Catalog) {
-  const finishes = Object.fromEntries([...new Set(design.parts.map((p) => finishFor(p, design.style)))]
-    .map((f) => [f, lookup(cat.finishes, f, 'finish')]));
-  const textureKeys = [...new Set(Object.values(finishes).flatMap((f) => [f.texture, f.edge]).filter((t): t is string => !!t))];
-  return {
-    name: design.spec.name, units: 'mm', overall: design.overall, style: design.style.name,
-    parts: design.parts.map((p) => ({
-      id: p.id, name: p.name, role: p.role, material: p.material, box: p.box, exposed: p.exposed,
-      finish: finishFor(p, design.style),
-      grainAxis: p.grain,
-      thicknessAxis: ({ x: 0, y: 1, z: 2 } as const)[p.faceA[1] as 'x' | 'y' | 'z'],
-      plies: lookup(cat.materials, p.material, 'material').plies ?? 7,
-      cuts: cutBoxes(p),
-    })),
-    fixtures: design.fixtures,
-    finishes,
-    textures: Object.fromEntries(textureKeys.map((k) => [k, Object.fromEntries(MAPS.map((m) => [m, `textures/${k}/${m}.jpg`]))])),
-  };
-}
-
-export const TEXTURE_MAPS = MAPS;
 export const TEXTURE_DIR = TEXTURES;
+export { model3d, TEXTURE_MAPS };
 
 export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o: JobOptions, viewerTemplate: string): string[] {
   if (existsSync(dir)) rmSync(dir, { recursive: true });

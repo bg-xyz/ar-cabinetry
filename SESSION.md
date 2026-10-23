@@ -127,3 +127,17 @@ Blake has an **iPhone 12 Pro** (LiDAR, RoomPlan supported). He OK'd the placehol
 **Waiting on Blake:** sign in to App Store Connect in Chrome (then Claude creates the app record, sets the secrets, builds to TestFlight); pick a license; pick a name.
 
 **Later (same day):** Blake picked **Apache-2.0** and the name **Make Room** (makeroom.xyz; Blake registers it). Added `LICENSE`, renamed user-facing text (home-screen name "Make Room"). App Store Connect: "Make Room" was taken, so the record is **"Make Room: Custom Cabinets"** (Apple ID 6826390742). Bundle ID registered by API; internal TestFlight group "Make Room Crew" (API) + Blake added (web; the API refused internal testers). First signed build failed: PowerShell 5 piping re-encoded the key secrets; re-set byte for byte from bash, fixed the script. **Build 6 uploaded to TestFlight** (one harmless warning: arkit requirement = no Vision Pro).
+
+---
+
+## 2026-10-23: Session 2 (cont.): Blake's first real scan → the planner
+
+**Blake's test (iPhone 12 Pro):** the scan worked, but (1) it's hard to tell what's been scanned; (2) the cabinet wasn't sized to the space; (3) it didn't decide single vs double sink. "This has to be very versatile, understand the space, and know what it's trying to output without a lot of user intervention." Leah's mom saw it and loved it.
+
+**Done:**
+- Engine split into pure modules (`model3d.ts`, `load.ts`; `catalog.ts` no longer touches files) so it runs on the phone.
+- **`src/planner.ts`**: `planVanity({ wallLength, obstacles, sinkAt })` finds clear stretches (doors/openings + 2", toilet centre ± 15", tubs/storage blocked; windows and the old sink don't block), picks the stretch with the old sink else the widest, the largest standard width (24–84") with 1/2" each side, **double sink at 60"+** (sink | drawer bank | sink), centres on the old sink when it fits, otherwise slides over and says so. Returns spec + position + plain-English notes.
+- Tests: 64 pass (every standard width builds a valid job).
+- **`npm run bundle`** (esbuild) → `app/Resources/plywise-engine.js` (25 KB): `Plywise.plan(json)` / `Plywise.design(json)`. Verified in a bare JS sandbox (no Node), same as JavaScriptCore.
+
+**Next (not started):** Swift side: `EngineBridge` (JSContext loads plywise-engine.js), room analysis (doors/windows/openings with `parentIdentifier` on the wall, toilet/tub/sink objects within ~40 cm of the wall → obstacle intervals along the wall's x, in the wall frame used by `basis()`), call `plan`, place at `x0`, show the notes. Scan UX: switch to a custom `RoomCaptureSession(arSession:)` + delegate `didUpdate` → draw walls/doors/objects live with length labels and a HUD ("4 walls · 1 door · sink ✓"), `RoomBuilder` for the final room. Then Style/Width menus re-plan on device. Then `python tools/asc.py friends <n> "..."` for Noah.

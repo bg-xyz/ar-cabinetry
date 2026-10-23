@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
-import { loadCatalog } from './catalog.ts';
+import { loadCatalog } from './load.ts';
 import { designRun } from './run.ts';
 import { buildJob, writeJob } from './job.ts';
 import type { RunSpec } from './types.ts';

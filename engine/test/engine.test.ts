@@ -4,7 +4,7 @@ import { readFileSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCatalog } from '../src/catalog.ts';
+import { loadCatalog } from '../src/load.ts';
 import { designRun } from '../src/run.ts';
 import { buildJob, writeJob } from '../src/job.ts';
 import type { Design, Part, RunSpec, Vec3 } from '../src/types.ts';

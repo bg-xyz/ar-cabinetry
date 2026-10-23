@@ -8,7 +8,7 @@
 import { readFileSync, readdirSync, mkdirSync, writeFileSync, copyFileSync, rmSync, existsSync } from 'node:fs';
 import { dirname, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCatalog } from './catalog.ts';
+import { loadCatalog } from './load.ts';
 import { designRun } from './run.ts';
 import { model3d, TEXTURE_DIR, TEXTURE_MAPS } from './job.ts';
 import type { RunSpec } from './types.ts';
