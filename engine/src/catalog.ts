@@ -40,7 +40,7 @@ const base: Style = {
   drawerBottom: 'bb6',
   hinge: 'blum-cliptop-110-overlay',
   runner: 'blum-tandem-563h',
-  pull: 'tab-32',
+  pull: 'bar-128',
   dadoDepth: 6,
   grooveDepth: 6,
   stretcherWidth: 100,

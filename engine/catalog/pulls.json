@@ -1,9 +1,16 @@
 {
-  "tab-32": {
-    "name": "Top-edge tab pull, 32mm c/c, screws from behind (generic, pick a real one)",
-    "holes": [-16, 16], "fromTopEdge": 9, "holeDia": 3.5, "holeDepth": 12, "fromOpeningEdge": 60,
+  "bar-128": {
+    "name": "Bar pull, 128mm (5\") c/c, matte black (generic, pick a real one)",
+    "holes": [-64, 64], "fromTopEdge": 40, "holeDia": 5, "thru": true, "fromOpeningEdge": 110,
+    "size": [170, 12, 32],
     "buy": null,
-    "verify": "Placeholder until Blake picks the actual pull."
+    "verify": "Placeholder until Blake picks the actual pull; hole spacing and screw size come from the real product."
+  },
+  "bar-96": {
+    "name": "Bar pull, 96mm c/c, matte black (generic)",
+    "holes": [-48, 48], "fromTopEdge": 35, "holeDia": 5, "thru": true, "fromOpeningEdge": 90,
+    "size": [130, 12, 30],
+    "buy": null
   },
   "none": { "name": "No pull (push-to-open or routed groove)", "holes": [], "fromTopEdge": 0, "holeDia": 0, "holeDepth": 0 }
 }

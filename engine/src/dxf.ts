@@ -3,6 +3,7 @@
 //
 //   DRILL_5_D13        5mm holes, 13mm deep   (drill bit)
 //   DRILL_8_D11        8mm hinge dowel holes  (drill bit)
+//   DRILL_5_THRU       through holes (pull screws), into the spoilboard
 //   POCKET_D13         35mm hinge cups etc.   (end mill, pocket)
 //   POCKET_D6          dados, rabbets, grooves (end mill, pocket)
 //   CUT_INSIDE         through cut-outs       (profile, inside)
@@ -20,7 +21,9 @@ export const DRILL_MAX_DIA = 10; // larger holes are pocketed with an end mill
 
 export function layerFor(op: FlatOp): string {
   switch (op.kind) {
-    case 'hole': return op.dia <= DRILL_MAX_DIA ? `DRILL_${num(op.dia)}_D${num(op.depth)}` : `POCKET_D${num(op.depth)}`;
+    case 'hole':
+      if (op.thru) return op.dia <= DRILL_MAX_DIA ? `DRILL_${num(op.dia)}_THRU` : 'CUT_INSIDE';
+      return op.dia <= DRILL_MAX_DIA ? `DRILL_${num(op.dia)}_D${num(op.depth)}` : `POCKET_D${num(op.depth)}`;
     case 'pocket': return `POCKET_D${num(op.depth)}`;
     case 'cutRect': case 'cutCircle': return 'CUT_INSIDE';
   }

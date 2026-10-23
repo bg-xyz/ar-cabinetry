@@ -53,7 +53,11 @@ export function flatten(part: Part, cat: Catalog, overcut: number): FlatPart {
       onFace(op.at, op.note);
       const x = U(op.at), y = V(op.at);
       inside(x, y, op.dia / 2, op.note);
-      if (op.kind === 'hole') { deep(op.depth, op.note); return { kind: 'hole', x, y, dia: op.dia, depth: op.depth, note: op.note }; }
+      if (op.kind === 'hole') {
+        if (op.thru) return { kind: 'hole', x, y, dia: op.dia, depth: thickness + 0.5, note: op.note, thru: true };
+        deep(op.depth, op.note);
+        return { kind: 'hole', x, y, dia: op.dia, depth: op.depth, note: op.note };
+      }
       return { kind: 'cutCircle', x, y, dia: op.dia, note: op.note };
     }
     onFace(op.from, op.note); onFace(op.to, op.note);

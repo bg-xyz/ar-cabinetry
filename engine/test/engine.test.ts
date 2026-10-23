@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadCatalog } from '../src/catalog.ts';
 import { designRun } from '../src/run.ts';
-import { buildJob } from '../src/job.ts';
+import { buildJob, writeJob } from '../src/job.ts';
 import type { Design, Part, RunSpec, Vec3 } from '../src/types.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -71,6 +72,18 @@ for (const [name, spec] of all) {
     const job = buildJob(d, cat, { units: 'in', toolDia: 6.35 }); // flatten throws on any off-part / off-face op
     assert.ok(d.parts.length > 5);
     assert.equal(job.flat.length, d.parts.length);
+  });
+
+  test(`${name}: writes a complete job package`, () => {
+    const d = designRun(spec, cat);
+    const o = { units: 'in' as const, toolDia: 6.35 };
+    const dir = mkdtempSync(join(tmpdir(), 'cab-'));
+    try {
+      const files = writeJob(join(dir, 'job'), d, buildJob(d, cat, o), cat, o, '/*PARTS_JSON*/null');
+      for (const f of ['parts.json', 'cutlist.csv', 'jobsheet.html', 'preview.html']) assert.ok(files.includes(f), f);
+      assert.ok(files.some((f) => f.endsWith('.dxf')));
+      assert.ok(!readFileSync(join(dir, 'job', 'jobsheet.html'), 'utf8').includes('undefined'));
+    } finally { rmSync(dir, { recursive: true }); }
   });
 
   test(`${name}: parts only overlap where joinery was machined`, () => {

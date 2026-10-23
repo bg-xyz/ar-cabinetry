@@ -97,12 +97,16 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
   const gripOps = (x0: number, x1: number, y1: number, pullX: number): WorldOp[] => {
     if (style.grip === 'groove')
       return [{ kind: 'pocket', from: [x0, y1 - 20, frontBackZ], to: [x1, y1, frontBackZ], depth: ft - 6, note: 'finger groove' }];
-    if (style.grip === 'push') return [];
-    if (pull.holes.length) fixtures.push({ kind: 'pull', shape: 'box', name: pull.name,
-      box: { min: [pullX - 25, y1 - 26, frontBackZ + ft], size: [50, 24, 14] } });
-    return pull.holes.map((o): WorldOp => ({
-      kind: 'hole', at: [pullX + o, y1 - pull.fromTopEdge, frontBackZ], dia: pull.holeDia, depth: pull.holeDepth, note: 'pull',
-    }));
+    if (style.grip === 'push' || !pull.holes.length) return [];
+    const py = y1 - pull.fromTopEdge;
+    const [sx, sy, sz] = pull.size ?? [pull.holes[pull.holes.length - 1] - pull.holes[0] + 30, 12, 30];
+    fixtures.push({ kind: 'pull', shape: 'box', name: pull.name, box: { min: [pullX - sx / 2, py - sy / 2, frontBackZ + ft], size: [sx, sy, sz] } });
+    return pull.holes.flatMap((o): WorldOp[] => {
+      const at: Vec3 = [pullX + o, py, frontBackZ];
+      const hole: WorldOp = { kind: 'hole', at, dia: pull.holeDia, depth: pull.holeDepth ?? 0, thru: pull.thru, note: 'pull' };
+      // through-bolted pulls: counterbore the screw head flush into the back of the front
+      return pull.thru ? [hole, { kind: 'hole', at, dia: 11, depth: 3, note: 'pull screw counterbore' }] : [hole];
+    });
   };
   const gripHardware = (n: number) => {
     if (style.grip === 'pull' && pull.holes.length) hw(pull.name, n, pull.buy);
@@ -132,7 +136,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
           for (const dy of [-hinge.plate.holeSpacing / 2, hinge.plate.holeSpacing / 2])
             side.ops.push({ kind: 'hole', at: [sx, hy + dy, pz], dia: hinge.plate.holeDia, depth: hinge.plate.holeDepth, note: 'hinge plate' });
         }
-        const pullX = d.side === 'left' ? d.x1 - (pull.fromOpeningEdge ?? 60) : d.x0 + (pull.fromOpeningEdge ?? 60);
+        const pullX = d.side === 'left' ? d.x1 - (pull.fromOpeningEdge ?? 100) : d.x0 + (pull.fromOpeningEdge ?? 100);
         ops.push(...gripOps(d.x0, d.x1, y1, pullX));
         add({ id: id(`door-${zi + 1}${doors.length > 1 ? 'LR'[di] : ''}`), name: `Door (${d.side} hinge)`, role: 'door',
           material: style.fronts, box: { min: [d.x0, fz[1], fz[2]], size: [d.x1 - d.x0, dh, ft] },

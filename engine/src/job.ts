@@ -99,9 +99,13 @@ function jobSheet(design: Design, job: Job, cat: Catalog, o: JobOptions, rows: s
     SHEET: 'sheet outline, reference only', LABELS: 'part ids, reference only',
     CUT_OUTSIDE: 'profile OUTSIDE, through, with tabs; run LAST', CUT_INSIDE: 'profile INSIDE, through (sink, faucet, plumbing holes)',
   };
-  const describe = (l: string) => layerHelp[l] ??
-    (l.startsWith('DRILL_') ? `drill ${l.split('_')[1].replace('p', '.')}mm holes, ${l.split('_D')[1].replace('p', '.')}mm deep`
-      : `pocket ${l.split('_D')[1].replace('p', '.')}mm deep (end mill)`);
+  const mm = (s: string) => s.replace('p', '.');
+  const describe = (l: string) => {
+    if (layerHelp[l]) return layerHelp[l];
+    const [kind, size, depth] = l.split('_');
+    if (kind === 'DRILL') return `drill ${mm(size)}mm holes, ${depth === 'THRU' ? 'through (into spoilboard)' : `${mm(depth.slice(1))}mm deep`}`;
+    return `pocket ${mm(size.slice(1))}mm deep (end mill)`;
+  };
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(design.spec.name)} - job sheet</title>
 <style>
