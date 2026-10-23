@@ -59,3 +59,5 @@ Newest at the bottom. Each entry covers what happened, what was decided, and wha
 **A few points I added to Blake's "only holes vary":** mostly true, but the engine also has to handle (a) door/drawer front sizes from the reveal and hinge overlay, (b) drawer-box sizes derived from the runner model (Blum specs), (c) dado widths from **measured** ply thickness, and (d) scribe/filler strips and plumbing cutouts. All of these are formulas, not new design work.
 
 **Next:** build the engine skeleton in TypeScript: box primitive + one vanity layout → parts JSON → DXF + 3D preview on the PC.
+
+**Later in session 2:** Blake suggested limiting support for manufacturer parts (sinks, faucets, kitchen hardware) at first. Decided: a short list of supported parts, each stored as JSON (dimensions, cutout/drill template, clearances, buy link), and users pick only from that list. I added affiliate buy links on catalog items as a second revenue stream. Vanity v0 needs about 2-3 sinks (vessel + undermount), 2-3 single-hole faucets and 1-2 pulls.
