@@ -51,8 +51,14 @@ Three layers, all in code:
 
 **AR placement:** RoomPlan gives each wall's position and orientation. Cabinets snap to a wall and get a world anchor, so they stay locked in place while you walk around and look from every angle.
 
-### Status (2026-10-23)
-**Engine v0.1 is built and tested** in `engine/` (see `engine/README.md`; VCarve setup in `engine/VCARVE.md`). `npm run samples` builds 3 sample vanities into `jobs/`; `npm test` runs 26 checks, including a joinery-overlap check; DXFs pass an independent ezdxf audit (`tools/check_dxf.py`). Supports: overlay, inset and recessed inset; doors (single/pair) and drawers; pull, groove or push grips; wall-hung runs; ply countertop with vessel sink + faucet; plumbing cutouts; drawer-under-sink refusal. **Next:** Blake checks the flagged Blum numbers + measures ply → hinge test cut → full test vanity. Then: U-drawer, toe kick/legs, flush-face/half-overlay, shelves, then the iPhone app (RoomPlan → spec → this engine via JavaScriptCore → RealityKit from `parts.json`).
+### Status (2026-10-23, end of session 2)
+**Engine is at a good place** (`engine/`, see `engine/README.md`; VCarve setup in `engine/VCARVE.md`). 47 tests pass; DXFs pass an ezdxf audit.
+- Styles: overlay, inset, recessed inset; pull (face-mounted bar, through-bolted + counterbored), routed groove, push-to-open; flush-face end panels.
+- Boxes: doors (single/pair) with adjustable shelves on the 32mm grid; drawers (Blum TANDEM), **U-drawers around a sink drain**; wall-hung, **toe-kick plinth**, or **legs**.
+- Run: countertop, vessel sink + faucet (auto-placed so the faucet fits), plumbing cut-out in the back, multi-box runs.
+- Output: layered DXF per sheet (MaxRects nesting, grain-aware, long 4x8 sheets for long parts), job sheet, cut list, **quote** (sheets + yield, plywood + hardware estimate, CNC stats), `parts.json` for AR, single-file 3D preview.
+- **Realistic finishes:** CC0 scanned textures (Baltic birch, white oak, walnut, true-scale ply edges), PBR lighting, live finish picker. These are the same assets the app will use.
+- **Next:** the iPhone app, see `APP_PLAN.md`. Engine leftovers: half overlay / shared-gable runs (closets, bookcases), tall units + hanging rails, fluted fronts, Blum numbers verified by Blake, hinge test cut.
 
 ### Phase 0: the cabinet engine (Windows, no Mac needed) ← built, see Status
 A generator that turns cabinet parameters into cut-ready files:
@@ -73,7 +79,7 @@ Vanity v0 starting spec (change freely):
 - Blum hardware (exact model to pick: Movento vs Tandem for the runners, Clip top Blumotion hinges).
 - Sink type to decide: vessel, undermount, or integrated top. This sets the top cutout and stretchers.
 
-### Phase 2: the iPhone app
+### Phase 2: the iPhone app (full plan: `APP_PLAN.md`)
 - Swift + RoomPlan + RealityKit. **Needs a LiDAR iPhone (Pro model)** for good scans. Confirm which iPhone Blake has.
 - Builds: Blake **already has a paid Apple developer account**, so the cloud-build → TestFlight route works without a Mac, the same way Ragtime does it. The used M1 Mac mini (AR Police Trainer) makes local testing nicer but isn't required.
 - The app runs the same TypeScript engine via JavaScriptCore (no server needed, works offline).

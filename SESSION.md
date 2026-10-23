@@ -88,3 +88,26 @@ Engine takeaway: `mount` is a box-level parameter (it moves hinge plates, runner
 4. Box joinery: dado/rabbet + glue + confirmat (current default) OK?
 
 **Next:** hinge test cut → test vanity on Blake's machine. Engine: U-drawer, toe kick/legs, flush face, half overlay/shared gables, adjustable shelves. Then the iPhone app.
+
+---
+
+## 2026-10-23: Session 2 (cont.): engine built out, real textures, app plan
+
+**Blake:** pulls go **on the face near the top**; joinery (dado/rabbet + glue + confirmat) is fine. "Keep working on the engine as long as you want, it's the most core thing." After that comes the app: use the iPhone LiDAR scan to take in the space, measure, generate the model, place and lock it, and view it. **Textures must be top notch.**
+
+**Built this stretch (all tested, committed):**
+- **Pulls:** face-mounted bar pull (128mm c/c default, 96mm option), through-bolted, with an **11mm counterbore** on the back of the front so screw heads sit flush (no clash with the drawer box). New layer `DRILL_5_THRU`.
+- **Realistic finishes:** CC0 ambientCG scans in `engine/textures/`: Baltic birch face (Wood095), **true-scale ply edges** (Wood087; scaled per material ply count, so 18mm BB shows 13 plies), white oak (Wood049, lightened toward rift white oak), walnut (Wood051). `catalog/finishes.json` adds birch / white oak / walnut / painted white, sage, charcoal. Style fields `frontFinish`, `carcassFinish`, `topFinish`.
+- **Viewer rebuilt:** PBR (studio environment lighting, ACES tone mapping, soft shadows), world-space UVs (grain along each part's grain, plies through the thickness), open ceramic sink with drain, matte-black faucet/pulls/legs, a **live finish picker**, and through-cuts shown in 3D. Textures are embedded, so a double-click works (~2.6MB file).
+- **U-drawers** around a sink drain: two short backs, notch walls and a cross piece on a notched bottom. Sample `vanity-36-udrawers`.
+- **Bases:** `mounting: toe-kick` (per-cabinet plinth ladder, 4"/3" default) and `legs` (per run: corners + a centre pair on long runs). **Flush end panels** (`endPanels`) in the front finish, with the fronts' end gap widened to match. **Adjustable shelves** (`shelves: n` on door zones) on the 32mm grid, aligned with the hinge plates, notched for a drain.
+- **Nesting:** MaxRects; grain-locked parts only turn when forced; materials have a `longSheet` (4x8 BB), and long parts go first so other parts fill the leftover.
+- **Quote** (`quote.json` + job sheet summary): sheets per material with yield, plywood + hardware estimate (`catalog/prices.json`, rough Oct 2026 US retail, flagged), CNC cut length / holes / pockets / bits.
+- Tests: 47 (overlap/joinery check now covers plinths, shelves, end panels, U-drawers; job package write; U-drawer clears the drain).
+- `APP_PLAN.md`: how LiDAR/ARKit/RoomPlan work in plain English, the scan → measure → generate → lock → view → send pipeline, milestones.
+
+**Samples now:** vanity-30-doors, vanity-30-recessed, vanity-36-udrawers, vanity-48-run, vanity-48-milan (toe kick, end panels, push-to-open, white oak), sideboard-60-legs (walnut, shelves).
+
+**Still open for Blake:** Blum numbers flagged on the job sheet; measured ply thickness; which iPhone (LiDAR?); the real pull model; app name.
+
+**Next:** start the app (APP_PLAN milestone 1: "hello room"). Engine leftovers: shared-gable runs (closets/bookcases), tall units + hanging rails, fluted fronts.
