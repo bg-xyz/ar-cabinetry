@@ -1,0 +1,93 @@
+# Builds the iPhone app on a GitHub-hosted Mac (same setup as Ragtime).
+#
+# The Xcode project is generated here from app/project.yml with XcodeGen; it is never edited by hand.
+# Without Apple secrets: compiles for a real iPhone, unsigned (catches build errors).
+# With them: signs, uploads to App Store Connect, and the build lands in TestFlight.
+#
+# Secrets (same Apple account as Ragtime):
+#   APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY, CERTIFICATE_PRIVATE_KEY
+name: iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['app/**', '.github/workflows/ios.yml']
+
+concurrency:
+  group: ios
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+      BUNDLE_ID: xyz.bg.cabinets
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick the newest Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          cd app && xcodegen generate
+
+      - name: Have Apple secrets?
+        id: secrets
+        run: |
+          if [ -n "$APP_STORE_CONNECT_PRIVATE_KEY" ] && [ -n "$CERTIFICATE_PRIVATE_KEY" ]; then
+            echo "signing=yes" >> "$GITHUB_OUTPUT"; echo "Apple secrets found: building for TestFlight"
+          else
+            echo "signing=no" >> "$GITHUB_OUTPUT"; echo "No Apple secrets: unsigned compile check only"
+          fi
+
+      - name: Compile check (iPhone, unsigned)
+        if: steps.secrets.outputs.signing == 'no'
+        run: |
+          set -o pipefail
+          xcodebuild -project app/Cabinets.xcodeproj -scheme Cabinets -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build 2>&1 | grep -E "error:|BUILD (SUCCEEDED|FAILED)"
+
+      - name: Code signing (creates the App ID, certificate and profile on the first run)
+        if: steps.secrets.outputs.signing == 'yes'
+        run: |
+          pip3 install --quiet --break-system-packages codemagic-cli-tools || pip3 install --quiet codemagic-cli-tools
+          app-store-connect bundle-ids create "$BUNDLE_ID" --name "Cabinets" --platform IOS || echo "App ID already exists"
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles --project app/Cabinets.xcodeproj
+
+      - name: Build number (must go up every upload)
+        if: steps.secrets.outputs.signing == 'yes'
+        run: |
+          N=$((GITHUB_RUN_NUMBER + 1))
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $N;/g" app/Cabinets.xcodeproj/project.pbxproj
+          echo "Build number $N"
+
+      - name: Build the app
+        if: steps.secrets.outputs.signing == 'yes'
+        run: xcode-project build-ipa --project app/Cabinets.xcodeproj --scheme Cabinets
+
+      - name: Upload to App Store Connect (TestFlight)
+        if: steps.secrets.outputs.signing == 'yes'
+        run: app-store-connect publish --path build/ios/ipa/*.ipa
+
+      - name: Keep the logs if something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-logs
+          path: /tmp/xcodebuild_logs/*.log
+          if-no-files-found: ignore
+          retention-days: 7

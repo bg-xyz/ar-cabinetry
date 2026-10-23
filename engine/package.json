@@ -6,6 +6,7 @@
   "description": "Parametric Euro cabinet engine: run spec -> parts -> AR model + CNC job package",
   "scripts": {
     "samples": "node src/samples.ts",
+    "app-assets": "node src/app_assets.ts",
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc"
   },

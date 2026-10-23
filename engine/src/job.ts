@@ -108,17 +108,12 @@ function quote(design: Design, sheets: Sheet[], cat: Catalog, layers: string[]):
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
 
-export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o: JobOptions, viewerTemplate: string): string[] {
-  if (existsSync(dir)) rmSync(dir, { recursive: true });
-  mkdirSync(join(dir, 'sheets'), { recursive: true });
-  const written: string[] = [];
-  const put = (name: string, body: string) => { writeFileSync(join(dir, name), body); written.push(name); };
-
-  // 3D model for the preview and the AR app: boxes + which way the grain and plies run
+// 3D model for the preview and the AR app: boxes + which way the grain and plies run
+export function model3d(design: Design, cat: Catalog) {
   const finishes = Object.fromEntries([...new Set(design.parts.map((p) => finishFor(p, design.style)))]
     .map((f) => [f, lookup(cat.finishes, f, 'finish')]));
   const textureKeys = [...new Set(Object.values(finishes).flatMap((f) => [f.texture, f.edge]).filter((t): t is string => !!t))];
-  const parts3d = {
+  return {
     name: design.spec.name, units: 'mm', overall: design.overall, style: design.style.name,
     parts: design.parts.map((p) => ({
       id: p.id, name: p.name, role: p.role, material: p.material, box: p.box, exposed: p.exposed,
@@ -132,6 +127,19 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
     finishes,
     textures: Object.fromEntries(textureKeys.map((k) => [k, Object.fromEntries(MAPS.map((m) => [m, `textures/${k}/${m}.jpg`]))])),
   };
+}
+
+export const TEXTURE_MAPS = MAPS;
+export const TEXTURE_DIR = TEXTURES;
+
+export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o: JobOptions, viewerTemplate: string): string[] {
+  if (existsSync(dir)) rmSync(dir, { recursive: true });
+  mkdirSync(join(dir, 'sheets'), { recursive: true });
+  const written: string[] = [];
+  const put = (name: string, body: string) => { writeFileSync(join(dir, name), body); written.push(name); };
+
+  const parts3d = model3d(design, cat);
+  const textureKeys = Object.keys(parts3d.textures);
   put('parts.json', JSON.stringify(parts3d, null, 1));
   put('quote.json', JSON.stringify(job.quote, null, 1));
   for (const k of textureKeys) {
