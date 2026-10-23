@@ -1,3 +1,5 @@
 node_modules/
 jobs/
 .playwright-mcp/
+site/demo/
+site/CNAME

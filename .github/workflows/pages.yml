@@ -1,0 +1,51 @@
+# Publishes plywise.xyz (GitHub Pages) from site/, plus live engine demos:
+# every spec in engine/specs/ is rebuilt here, so the site always shows the current engine.
+name: Site
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['site/**', 'engine/**', '.github/workflows/pages.yml']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build the demo jobs with the engine
+        run: |
+          cd engine && node src/samples.ts && cd ..
+          mkdir -p site/demo
+          for d in jobs/*/; do
+            n=$(basename "$d")
+            cp "$d/preview.html" "site/demo/$n.html"
+            cp "$d/jobsheet.html" "site/demo/$n-jobsheet.html"
+          done
+          echo plywise.xyz > site/CNAME
+          ls site site/demo
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
