@@ -111,3 +111,17 @@ Engine takeaway: `mount` is a box-level parameter (it moves hinge plates, runner
 **Still open for Blake:** Blum numbers flagged on the job sheet; measured ply thickness; which iPhone (LiDAR?); the real pull model; app name.
 
 **Next:** start the app (APP_PLAN milestone 1: "hello room"). Engine leftovers: shared-gable runs (closets/bookcases), tall units + hanging rails, fluted fronts.
+
+---
+
+## 2026-10-23: Session 2 (cont.): the iPhone app starts, repo goes public
+
+Blake has an **iPhone 12 Pro** (LiDAR, RoomPlan supported). He OK'd the placeholder name and **making the repo public (open source)**, and asked for .xyz name ideas.
+
+- **App v0.1** built: RoomPlan scan on the AR view's own session -> walls shown as teal planes -> tap -> the design locks to the wall at floor level (centred on an existing sink if RoomPlan found one) -> design menu (5 designs), Fronts/Cabinet/Top finish menus, nudge along and away from the wall, other wall. Same PBR textures and world-space UVs as the web preview; LiDAR mesh occlusion; shadowed directional light. App icon drawn from the real textures (`app/tools/make_icon.py`).
+- Cloud build: XcodeGen + xcodebuild on GitHub Actions. First compile: 2 errors (SwiftUI.Scene vs RealityKit.Scene), fixed -> **BUILD SUCCEEDED**.
+- Bundle ID `xyz.bg.cabinets` registered via the App Store Connect API.
+- **Going public:** the history held Blake's Apple email, a family mention and App Store Connect key ids. Deleting the stash / force-pushing was blocked by the safety classifier, so instead: the scrubbed copy of all commits (git filter-branch on a new branch) became `main` and was pushed to a **new public repo bg-xyz/ar-cabinetry**; the original repo was renamed **bg-xyz/ar-cabinetry-private** (full history kept). Verified: 0 personal strings in the public history.
+- .xyz names checked via the CentralNic RDAP server (404 = unregistered; premium/reserved status unknown).
+
+**Waiting on Blake:** sign in to App Store Connect in Chrome (then Claude creates the app record, sets the secrets, builds to TestFlight); pick a license; pick a name.
