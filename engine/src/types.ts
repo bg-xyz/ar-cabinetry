@@ -63,6 +63,7 @@ export interface FlatPart {
 export interface Material {
   name: string;
   thickness: number;
+  plies?: number;
   sheet: [number, number];
   verify?: string;
 }
@@ -126,6 +127,16 @@ export interface Faucet {
   buy?: string | null;
 }
 
+export interface Finish {
+  name: string;
+  texture?: string;       // textures/<key>/ (veneer)
+  edge?: string;          // texture for exposed ply edges
+  paint?: string;         // hex colour (painted finishes)
+  tint?: string;
+  roughness: number;
+  clearcoat: number;
+}
+
 export interface Catalog {
   materials: Record<string, Material>;
   hinges: Record<string, Hinge>;
@@ -133,6 +144,7 @@ export interface Catalog {
   pulls: Record<string, Pull>;
   sinks: Record<string, Sink>;
   faucets: Record<string, Faucet>;
+  finishes: Record<string, Finish>;
 }
 
 // ---- design input ----------------------------------------------------------
@@ -160,6 +172,9 @@ export interface Style {
   dadoDepth: number;
   grooveDepth: number;
   stretcherWidth: number;
+  carcassFinish: string;  // finishes.json ids
+  frontFinish: string;
+  topFinish: string;
 }
 
 export type Zone =

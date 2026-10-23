@@ -5,12 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cabinet preview</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #e9e6e1; font: 14px system-ui, sans-serif; overflow: hidden; }
-  #ui { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,.92); padding: 10px 14px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
-  #ui h1 { font-size: 15px; margin: 0 0 4px; }
+  html, body { margin: 0; height: 100%; background: #ece9e4; font: 14px system-ui, sans-serif; overflow: hidden; }
+  #ui { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,.93); padding: 12px 14px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.15); width: 250px; }
+  #ui h1 { font-size: 15px; margin: 0 0 2px; }
+  #info { color: #555; font-size: 12px; margin-bottom: 6px; }
   #ui label { display: block; margin-top: 4px; cursor: pointer; }
-  #info { color: #555; font-size: 12px; }
-  #hover { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,.7); color: #fff; padding: 4px 10px; border-radius: 6px; display: none; }
+  #ui select { width: 100%; margin: 2px 0 4px; font: inherit; }
+  .k { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
+  #hover { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,.72); color: #fff; padding: 4px 10px; border-radius: 6px; display: none; }
+  #hint { position: absolute; bottom: 12px; right: 12px; color: #777; font-size: 12px; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -23,135 +26,261 @@
 <div id="ui">
   <h1 id="title"></h1>
   <div id="info"></div>
-  <label><input type="checkbox" id="fronts" checked> Fronts</label>
-  <label><input type="checkbox" id="top" checked> Countertop</label>
-  <label><input type="checkbox" id="open"> Pull drawers / open doors</label>
+  <div class="k">Fronts</div><select id="f-fronts"></select>
+  <div class="k">Cabinet</div><select id="f-carcass"></select>
+  <div class="k">Top</div><select id="f-top"></select>
+  <label><input type="checkbox" id="open"> Open doors / pull drawers</label>
+  <label><input type="checkbox" id="fronts" checked> Show fronts</label>
+  <label><input type="checkbox" id="top" checked> Show countertop + sink</label>
   <label><input type="checkbox" id="room" checked> Wall + floor</label>
-  <div id="info2" style="margin-top:6px;color:#777;font-size:12px">Drag to orbit, scroll to zoom, right-drag to pan</div>
 </div>
 <div id="hover"></div>
+<div id="hint">Drag to orbit &middot; scroll to zoom &middot; right-drag to pan</div>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 const DATA = /*PARTS_JSON*/null;
-document.getElementById('title').textContent = DATA.name;
+const $ = (id) => document.getElementById(id);
+$('title').textContent = DATA.name;
 const ov = DATA.overall;
 const inch = (mm) => (mm / 25.4).toFixed(1) + '"';
-document.getElementById('info').textContent = `${DATA.style} - ${inch(ov.width)} W x ${inch(ov.height)} H x ${inch(ov.depth)} D`;
+$('info').textContent = `${DATA.style} - ${inch(ov.width)} W x ${inch(ov.height)} H x ${inch(ov.depth)} D`;
 
+// ---- renderer: physically based, tone mapped, lit by a studio-room environment
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-renderer.setPixelRatio(devicePixelRatio);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xe9e6e1);
-const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 10, 20000);
-const controls = new OrbitControls(camera, renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xffffff, 0x998877, 1.1));
-const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-sun.position.set(-800, 2200, 2400);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -2000, right: 2000, top: 2000, bottom: -2000, far: 6000 });
-scene.add(sun);
+scene.background = new THREE.Color(0xece9e4);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.55;
 
-// plywood face + a darker edge band to suggest the exposed ply edge
-const COLORS = { side: 0xe3c896, bottom: 0xe3c896, stretcher: 0xd9bd88, back: 0xd8c8a6, rail: 0xcdb17c, top: 0xd6b47a,
-  door: 0xc99a5b, drawerFront: 0xc99a5b, drawerSide: 0xe9d7b0, drawerBoxFront: 0xe9d7b0, drawerBack: 0xe9d7b0, drawerBottom: 0xddd0b4 };
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 10, 30000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+const sun = new THREE.DirectionalLight(0xfff4e6, 2.2);
+sun.position.set(-900, 2600, 2600);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.radius = 6;
+sun.shadow.bias = -0.0004;
+Object.assign(sun.shadow.camera, { left: -2200, right: 2200, top: 2200, bottom: -2200, near: 100, far: 8000 });
+scene.add(sun, new THREE.HemisphereLight(0xffffff, 0xb8a990, 0.35));
+
+// ---- textures + finishes
+const loader = new THREE.TextureLoader();
+const texCache = new Map();
+function tex(key, map) {
+  const id = key + '/' + map;
+  if (!texCache.has(id)) {
+    const t = loader.load(DATA.textures[key][map]);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    if (map === 'color') t.colorSpace = THREE.SRGBColorSpace;
+    texCache.set(id, t);
+  }
+  return texCache.get(id);
+}
+const matCache = new Map();
+function finishMat(finishId, kind) { // kind: 'face' | 'edge'
+  const id = finishId + '|' + kind;
+  if (matCache.has(id)) return matCache.get(id);
+  const f = DATA.finishes[finishId];
+  const m = new THREE.MeshPhysicalMaterial({ roughness: f.roughness, clearcoat: f.clearcoat, clearcoatRoughness: 0.55 });
+  const key = kind === 'face' ? f.texture : f.edge;
+  if (f.paint) {
+    m.color.set(f.paint);
+  } else if (key && DATA.textures[key]) {
+    m.map = tex(key, 'color');
+    m.normalMap = tex(key, 'normal');
+    m.normalScale.set(0.5, 0.5);
+    m.roughnessMap = tex(key, 'roughness');
+    m.color.set(f.tint ?? '#ffffff');
+  }
+  matCache.set(id, m);
+  return m;
+}
+
+// UVs in real millimetres so grain and plies are true to scale: veneer grain runs along
+// the part's grain axis; on edges the plies stack through the thickness.
+const VENEER_TILE = 900;   // mm of veneer per texture tile
+const PLY_PAIRS = 64;      // light/dark ply pairs in one tile of the edge texture
+function partGeometry(p) {
+  const [sx, sy, sz] = p.box.size;
+  const g = new THREE.BoxGeometry(sx, sy, sz);
+  const pos = g.attributes.position, uv = g.attributes.uv;
+  const n = p.thicknessAxis, inPlane = [0, 1, 2].filter((a) => a !== n);
+  const grain = p.grainAxis !== null && p.grainAxis !== n ? p.grainAxis
+    : (p.box.size[inPlane[0]] >= p.box.size[inPlane[1]] ? inPlane[0] : inPlane[1]);
+  const across = inPlane.find((a) => a !== grain);
+  const plyTile = PLY_PAIRS * 2 * p.box.size[n] / p.plies;
+  let h = 0; for (const c of p.id) h = (h * 31 + c.charCodeAt(0)) >>> 0;   // stable per-part offset
+  const ou = (h % 997) / 997, ovv = ((h >> 10) % 991) / 991;
+  for (let f = 0; f < 6; f++) {
+    const m = f >> 1;
+    for (let i = f * 4; i < f * 4 + 4; i++) {
+      const w = [pos.getX(i) + sx / 2, pos.getY(i) + sy / 2, pos.getZ(i) + sz / 2]; // 0..size
+      if (m === n) uv.setXY(i, w[grain] / VENEER_TILE + ou, w[across] / VENEER_TILE + ovv);
+      else {
+        const along = [0, 1, 2].find((a) => a !== m && a !== n);
+        uv.setXY(i, w[along] / VENEER_TILE + ou, w[n] / plyTile + ovv);
+      }
+    }
+  }
+  return g;
+}
+
+// which finish each part shows (mirrors engine/src/job.ts finishFor)
+const choice = { fronts: null, carcass: null, top: null };
+const isFront = (r) => r === 'door' || r === 'drawerFront';
+function finishOf(p) {
+  if (isFront(p.role)) return choice.fronts;
+  if (p.role === 'top') return choice.top;
+  if (p.role.startsWith('drawer') || p.role === 'back') return 'birch';
+  return choice.carcass;
+}
+const first = (pred) => DATA.parts.find(pred)?.finish ?? 'birch';
+choice.fronts = first((p) => isFront(p.role));
+choice.carcass = first((p) => p.role === 'side');
+choice.top = first((p) => p.role === 'top');
+
+// ---- build the cabinets
 const group = new THREE.Group();
 group.position.y = ov.elevation;
 scene.add(group);
 const meshes = [];
 for (const p of DATA.parts) {
+  const mesh = new THREE.Mesh(partGeometry(p));
   const [sx, sy, sz] = p.box.size, [mx, my, mz] = p.box.min;
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz),
-    new THREE.MeshStandardMaterial({ color: COLORS[p.role] ?? 0xcccccc, roughness: .75 }));
   mesh.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
   mesh.castShadow = mesh.receiveShadow = true;
-  mesh.userData = p;
-  mesh.userData.home = mesh.position.clone();
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x6b5236 }));
-  mesh.add(edges);
+  mesh.userData = { ...p, home: mesh.position.clone() };
   group.add(mesh);
   meshes.push(mesh);
 }
+function applyFinishes() {
+  for (const m of meshes) {
+    const p = m.userData, fid = finishOf(p);
+    m.material = [0, 1, 2, 3, 4, 5].map((f) => finishMat(fid, (f >> 1) === p.thicknessAxis ? 'face' : 'edge'));
+  }
+}
 
-// bought items: sink bowl, faucet, pulls
+// ---- bought items: vessel sink, faucet, pulls
+const ceramic = new THREE.MeshPhysicalMaterial({ color: 0xf6f5f1, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 });
+const blackMetal = new THREE.MeshPhysicalMaterial({ color: 0x1c1c1c, roughness: 0.38, metalness: 0.65 });
 const fixtures = [];
-const white = new THREE.MeshStandardMaterial({ color: 0xf8f8f6, roughness: .25 });
-const metal = new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: .35, metalness: .6 });
 for (const f of DATA.fixtures ?? []) {
   const [sx, sy, sz] = f.box.size, [mx, my, mz] = f.box.min;
-  const c = new THREE.Vector3(mx + sx / 2, my + sy / 2, mz + sz / 2);
   let obj;
   if (f.kind === 'sink') {
-    obj = f.shape === 'round'
-      ? new THREE.Mesh(new THREE.CylinderGeometry(sx / 2, sx / 2 * 0.72, sy, 48, 1, true), white)
-      : new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), white);
-    white.side = THREE.DoubleSide;
+    if (f.shape === 'round') {
+      const r = sx / 2, t = 9;
+      const prof = [[0, 0], [r * 0.6, 0], [r * 0.9, sy * 0.45], [r, sy], [r - t, sy], [r * 0.9 - t, sy * 0.45], [r * 0.6 - t, t], [0, t]]
+        .map(([x, y]) => new THREE.Vector2(x, y));
+      obj = new THREE.Group();
+      const drain = new THREE.Mesh(new THREE.CircleGeometry(22, 32), blackMetal);
+      drain.rotation.x = -Math.PI / 2; drain.position.y = t + 0.5;
+      obj.add(new THREE.Mesh(new THREE.LatheGeometry(prof, 96), ceramic), drain);
+      obj.position.set(mx + r, my, mz + sz / 2);
+    } else {
+      // open basin: rounded-rectangle ring extruded up for the walls, plus a floor
+      const rr = (w, d, r) => {
+        const s = new THREE.Shape(), x = -w / 2, y = -d / 2;
+        s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+        s.lineTo(x + w, y + d - r); s.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+        s.lineTo(x + r, y + d); s.quadraticCurveTo(x, y + d, x, y + d - r);
+        s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+        return s;
+      };
+      const wallT = 11, ring = rr(sx, sz, 40);
+      ring.holes.push(rr(sx - 2 * wallT, sz - 2 * wallT, 30));
+      const walls = new THREE.Mesh(new THREE.ExtrudeGeometry(ring, { depth: sy, bevelEnabled: true, bevelThickness: 3, bevelSize: 3, bevelSegments: 3, curveSegments: 12 }), ceramic);
+      const base = new THREE.Mesh(new THREE.ExtrudeGeometry(rr(sx - 2, sz - 2, 39), { depth: 14, bevelEnabled: false, curveSegments: 12 }), ceramic);
+      const drain = new THREE.Mesh(new THREE.CircleGeometry(22, 32), blackMetal);
+      drain.position.z = 14.5;                 // on the basin floor (extrusion space, before the rotation)
+      obj = new THREE.Group();
+      obj.add(walls, base, drain);
+      obj.rotation.x = -Math.PI / 2;           // extrusion runs up from the countertop
+      obj.position.set(mx + sx / 2, my, mz + sz / 2);
+    }
   } else if (f.kind === 'faucet') {
     obj = new THREE.Group();
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(15, 18, sy, 24), metal);
-    const spout = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 170, 16), metal);
-    spout.rotation.x = Math.PI / 2; spout.position.set(0, sy / 2 - 12, 85);
-    obj.add(post, spout);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(14, 17, sy, 32), blackMetal);
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 175, 24), blackMetal);
+    spout.rotation.x = Math.PI / 2; spout.position.set(0, sy / 2 - 14, 80);
+    const lever = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 60, 12), blackMetal);
+    lever.rotation.z = Math.PI / 2; lever.position.set(30, sy / 2 - 70, 0);
+    obj.add(post, spout, lever);
+    obj.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
   } else {
-    obj = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), metal);
+    obj = new THREE.Mesh(new RoundedBoxGeometry(sx, sy, sz, 4, Math.min(sy, sz) / 2.2), blackMetal);
+    obj.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
   }
-  obj.position.copy(c);
-  obj.traverse((m) => { m.castShadow = true; });
-  obj.userData = { kind: f.kind, home: c.clone() };
+  obj.traverse((m) => { m.castShadow = true; m.receiveShadow = true; });
+  obj.userData = { kind: f.kind };
   group.add(obj);
   fixtures.push(obj);
 }
 
+// ---- room
 const room = new THREE.Group();
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshStandardMaterial({ color: 0xbfb6a8 }));
-floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.position.set(ov.width / 2, 0, 1500);
-const wall = new THREE.Mesh(new THREE.PlaneGeometry(6000, 2700), new THREE.MeshStandardMaterial({ color: 0xf4f1ec }));
-wall.position.set(ov.width / 2, 1350, -1); wall.receiveShadow = true;
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: 0xc9c2b8, roughness: 0.85 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.position.set(ov.width / 2, 0, 2000);
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(8000, 2800), new THREE.MeshStandardMaterial({ color: 0xf2eee8, roughness: 0.95 }));
+wall.position.set(ov.width / 2, 1400, -1); wall.receiveShadow = true;
 room.add(floor, wall);
 scene.add(room);
 
 const center = new THREE.Vector3(ov.width / 2, ov.elevation + ov.height / 2, ov.depth / 2);
-camera.position.set(center.x + ov.width * 0.9, center.y + 500, ov.depth + Math.max(ov.width, 900) * 1.6);
+camera.position.set(center.x + ov.width * 0.75, center.y + 420, ov.depth + Math.max(ov.width, 900) * 1.55);
 controls.target.copy(center);
 controls.update();
 
-const isFront = (r) => r === 'door' || r === 'drawerFront';
-const isDrawer = (r) => r.startsWith('drawer');
+// ---- UI
+for (const [sel, key] of [['f-fronts', 'fronts'], ['f-carcass', 'carcass'], ['f-top', 'top']]) {
+  const el = $(sel);
+  for (const [id, f] of Object.entries(DATA.finishes)) el.add(new Option(f.name, id, false, id === choice[key]));
+  el.addEventListener('change', () => { choice[key] = el.value; applyFinishes(); });
+}
+if (!DATA.parts.some((p) => p.role === 'top')) $('f-top').disabled = true;
+
 function apply() {
-  const showFronts = document.getElementById('fronts').checked;
-  const open = document.getElementById('open').checked;
+  const showFronts = $('fronts').checked, open = $('open').checked, showTop = $('top').checked;
   for (const m of meshes) {
-    const r = m.userData.role;
-    m.visible = r === 'top' ? document.getElementById('top').checked : isFront(r) ? showFronts : true;
-    m.position.copy(m.userData.home);
+    const p = m.userData, r = p.role;
+    m.visible = r === 'top' ? showTop : isFront(r) ? showFronts : true;
+    m.position.copy(p.home);
     m.rotation.set(0, 0, 0);
-    if (open && isDrawer(r)) m.position.z += 300;
+    if (open && r.startsWith('drawer')) m.position.z += 300;
     if (open && r === 'door') {
-      // swing about the hinge edge
-      const left = m.userData.name.includes('left');
-      const b = m.userData.box, pivotX = left ? b.min[0] : b.min[0] + b.size[0];
+      const left = p.name.includes('left');
+      const b = p.box, pivotX = left ? b.min[0] : b.min[0] + b.size[0];
       const ang = (left ? -1 : 1) * Math.PI * 0.55;
-      const off = new THREE.Vector3(m.position.x - pivotX, 0, m.position.z - b.min[2]);
-      off.applyAxisAngle(new THREE.Vector3(0, 1, 0), ang);
+      const off = new THREE.Vector3(m.position.x - pivotX, 0, m.position.z - b.min[2]).applyAxisAngle(new THREE.Vector3(0, 1, 0), ang);
       m.position.set(pivotX + off.x, m.position.y, b.min[2] + off.z);
       m.rotation.y = ang;
     }
   }
-  for (const f of fixtures) {
-    f.visible = f.userData.kind === 'pull' ? showFronts && !open : document.getElementById('top').checked;
-  }
-  room.visible = document.getElementById('room').checked;
+  for (const f of fixtures) f.visible = f.userData.kind === 'pull' ? showFronts && !open : showTop;
+  room.visible = $('room').checked;
 }
-for (const id of ['fronts', 'top', 'open', 'room']) document.getElementById(id).addEventListener('change', apply);
+for (const id of ['fronts', 'top', 'open', 'room']) $(id).addEventListener('change', apply);
+applyFinishes();
+apply();
 
-const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), hover = document.getElementById('hover');
-addEventListener('pointermove', (e) => {
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), hover = $('hover');
+renderer.domElement.addEventListener('pointermove', (e) => {
   mouse.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1);
   ray.setFromCamera(mouse, camera);
   const hit = ray.intersectObjects(meshes.filter((m) => m.visible), false)[0];
@@ -160,6 +289,8 @@ addEventListener('pointermove', (e) => {
 });
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+window.__view = (pos, target) => { camera.position.set(...pos); controls.target.set(...target); controls.update(); };
+window.__setFinish = (key, id) => { choice[key] = id; $('f-' + key).value = id; applyFinishes(); };
 window.__ready = true;
 </script>
 </body>

@@ -14,6 +14,7 @@ export function loadCatalog(dir = join(here, '..', 'catalog')): Catalog {
     pulls: read('pulls'),
     sinks: read('sinks'),
     faucets: read('faucets'),
+    finishes: read('finishes'),
   };
 }
 
@@ -44,6 +45,9 @@ const base: Style = {
   dadoDepth: 6,
   grooveDepth: 6,
   stretcherWidth: 100,
+  carcassFinish: 'birch',
+  frontFinish: 'birch',
+  topFinish: 'birch',
 };
 
 export const STYLE_PRESETS: Record<string, Style> = {

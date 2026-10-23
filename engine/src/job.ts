@@ -6,15 +6,27 @@
 //   jobsheet.html     printable: hardware, cut list, sheet maps, warnings, layer legend
 //   preview.html      spin-around 3D view (three.js)
 
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, writeFileSync, rmSync, existsSync, copyFileSync, readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { flatten } from './flatten.ts';
 import { nest, placeOp } from './nest.ts';
 import type { Sheet } from './nest.ts';
 import { sheetDxf, layerFor } from './dxf.ts';
 import { lookup } from './catalog.ts';
 import { fmtBoth } from './units.ts';
-import type { Catalog, Design, FlatPart } from './types.ts';
+import type { Catalog, Design, FlatPart, Part, Style } from './types.ts';
+
+const TEXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'textures');
+const MAPS = ['color', 'normal', 'roughness'] as const;
+
+// Which finish a part shows. Drawer boxes and backs stay natural birch whatever the style.
+export function finishFor(p: Part, s: Style): string {
+  if (p.role === 'door' || p.role === 'drawerFront') return s.frontFinish;
+  if (p.role === 'top') return s.topFinish;
+  if (p.role.startsWith('drawer') || p.role === 'back') return 'birch';
+  return s.carcassFinish;
+}
 
 export interface JobOptions { units: 'mm' | 'in'; toolDia: number }
 
@@ -38,12 +50,36 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
   const written: string[] = [];
   const put = (name: string, body: string) => { writeFileSync(join(dir, name), body); written.push(name); };
 
+  // 3D model for the preview and the AR app: boxes + which way the grain and plies run
+  const finishes = Object.fromEntries([...new Set(design.parts.map((p) => finishFor(p, design.style)))]
+    .map((f) => [f, lookup(cat.finishes, f, 'finish')]));
+  const textureKeys = [...new Set(Object.values(finishes).flatMap((f) => [f.texture, f.edge]).filter((t): t is string => !!t))];
   const parts3d = {
     name: design.spec.name, units: 'mm', overall: design.overall, style: design.style.name,
-    parts: design.parts.map(({ id, name, role, material, box, exposed }) => ({ id, name, role, material, box, exposed })),
+    parts: design.parts.map((p) => ({
+      id: p.id, name: p.name, role: p.role, material: p.material, box: p.box, exposed: p.exposed,
+      finish: finishFor(p, design.style),
+      grainAxis: p.grain,
+      thicknessAxis: ({ x: 0, y: 1, z: 2 } as const)[p.faceA[1] as 'x' | 'y' | 'z'],
+      plies: lookup(cat.materials, p.material, 'material').plies ?? 7,
+    })),
     fixtures: design.fixtures,
+    finishes,
+    textures: Object.fromEntries(textureKeys.map((k) => [k, Object.fromEntries(MAPS.map((m) => [m, `textures/${k}/${m}.jpg`]))])),
   };
   put('parts.json', JSON.stringify(parts3d, null, 1));
+  for (const k of textureKeys) {
+    mkdirSync(join(dir, 'textures', k), { recursive: true });
+    for (const m of MAPS) copyFileSync(join(TEXTURES, k, `${m}.jpg`), join(dir, 'textures', k, `${m}.jpg`));
+  }
+  // the preview embeds its textures so it works by double-click (browsers block file:// textures in WebGL)
+  const allKeys = [...new Set(Object.values(cat.finishes).flatMap((f) => [f.texture, f.edge]).filter((t): t is string => !!t))];
+  const embedded = {
+    ...parts3d,
+    finishes: cat.finishes,
+    textures: Object.fromEntries(allKeys.map((k) => [k, Object.fromEntries(MAPS.map((m) =>
+      [m, `data:image/jpeg;base64,${readFileSync(join(TEXTURES, k, `${m}.jpg`)).toString('base64')}`]))])),
+  };
 
   const sheetOf = new Map<string, string>();
   job.sheets.forEach((sh, i) => {
@@ -59,7 +95,7 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
     .map((r) => r.map((c) => (/[",]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n') + '\n');
 
   put('jobsheet.html', jobSheet(design, job, cat, o, rows));
-  put('preview.html', viewerTemplate.replace('/*PARTS_JSON*/null', JSON.stringify(parts3d)));
+  put('preview.html', viewerTemplate.replace('/*PARTS_JSON*/null', () => JSON.stringify(embedded)));
   return written;
 }
 
