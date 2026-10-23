@@ -1,6 +1,6 @@
 # AR Cabinetry (working title): project handoff
 
-Read this first in every session. Session-by-session history is in `SESSION.md`; add to it at the end of each session.
+Read this first in every session. Session-by-session history is in `SESSION.md`; add to it at the end of each session. Style research (the 8 style switches + presets the engine is built around) is in `STYLES.md`, with a visual sheet at `research/style_switches.png`.
 
 ## The idea
 
