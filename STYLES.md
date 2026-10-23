@@ -1,6 +1,6 @@
 # Style research: modern European cabinets and built-ins
 
-Researched 2026-10-23, before building the engine. **Conclusion: Blake is right.** Every modern look in this research is the same parts (gables/sides, bottom, top/stretchers, captured back, fronts, base, pull), changed by a few construction choices. The engine doesn't need "styles" as separate code. It needs about **8 switches**, and a style is just a preset of switch settings.
+Researched 2026-10-23, before building the engine. **Conclusion: Blake is right.** Every modern look in this research is the same parts (gables/sides, bottom, top/stretchers, captured back, fronts, base, pull), changed by a few construction choices. The engine doesn't need "styles" as separate code. It needs about **8 switches** (front mounting has 5 options including Blake's recessed inset), and a style is just a preset of switch settings.
 
 Visual sheet: `research/style_switches.png` (made by `research/style_switches.py`).
 
@@ -14,6 +14,7 @@ Visual sheet: `research/style_switches.png` (made by `research/style_switches.py
 | **Full overlay** | The classic Euro look: fronts cover the whole box, so you only see a wall of fronts and gaps. | Fronts = box size minus reveals. Standard Blum hinge (full-crank / "full overlay" arm). Runners at the front edge. |
 | **Inset (sides shown)** | Fronts sit *inside* the box, flush with the carcass edges, so the box reads as a frame around each front. The exposed ply edge becomes the detail (Reform / Plykea / Nakedkitchens look). | Fronts = opening minus reveals. Inset hinge (Blum 18mm-crank, e.g. 71M2750 family). Runners and hinge plates are set back by the front thickness. **Demands precision:** the gap is visible all the way round (about 3/32"-1/8"). |
 | **Flush face (overlay + flush ends)** | A monolithic slab: the end panels come forward to the plane of the fronts, so the box disappears. "Milan" handleless look. | Full overlay fronts, plus an **applied end panel / gable** one front-thickness deeper. The door reveal at that side has to account for the end panel. |
+| **Recessed inset (shadow front)** | Blake's addition (2026-10-23). Fronts sit *inside* the box and **set back ~1/2"-3/4"** from the carcass edges, so the top, sides and bottom stand proud and frame each front with a shadow line. | Same as inset, plus a `setback` value: hinge plates, runners and system holes move back by front thickness + setback. Fronts are sized the same as inset. In the engine it's just `mount: inset` with `insetSetback > 0`. |
 | **Half overlay (shared gables)** | A run where the fronts each cover half of a shared middle gable. Common in closets and bookcases built as one big box. | The run is **one carcass with shared panels**, not separate boxes. Half-crank hinge (Blum 9.5mm crank). |
 
 Sources say inset and half-overlay work is usually built with **shared panels**, and full overlay usually as **separate boxes**. So "separate boxes vs. shared-gable run" is a switch of its own (see #8).

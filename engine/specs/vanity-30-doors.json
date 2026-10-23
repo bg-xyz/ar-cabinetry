@@ -1,0 +1,13 @@
+{
+  "name": "Vanity v0: 30\" floating, vessel sink, door pair",
+  "units": "in",
+  "style": { "preset": "classic-euro" },
+  "mounting": "wall-hung",
+  "elevation": 10.25,
+  "cabinets": [
+    { "id": "A", "width": 30, "height": 20, "depth": 20,
+      "zones": [ { "type": "doors", "size": "fill", "count": 2 } ] }
+  ],
+  "top": { "material": "bb18", "overhangSides": 0, "overhangFront": 0.5 },
+  "sinks": [ { "cabinet": "A", "sink": "vessel-round-16", "faucet": "vessel-single-hole" } ]
+}

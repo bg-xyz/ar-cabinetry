@@ -1,0 +1,9 @@
+{
+  "tab-32": {
+    "name": "Top-edge tab pull, 32mm c/c, screws from behind (generic, pick a real one)",
+    "holes": [-16, 16], "fromTopEdge": 9, "holeDia": 3.5, "holeDepth": 12, "fromOpeningEdge": 60,
+    "buy": null,
+    "verify": "Placeholder until Blake picks the actual pull."
+  },
+  "none": { "name": "No pull (push-to-open or routed groove)", "holes": [], "fromTopEdge": 0, "holeDia": 0, "holeDepth": 0 }
+}

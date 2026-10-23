@@ -64,3 +64,27 @@ Newest at the bottom. Each entry covers what happened, what was decided, and wha
 
 **Style research (session 2, cont.):** Blake asked for research on modern Euro cabinet and built-in styles before the engine is built, so we know the range of variation (inset with sides shown, flush face, etc.). His point: it's all the same components in slightly different construction. **Confirmed.** Wrote `STYLES.md`: every look reduces to 8 switches: front mounting (full overlay / inset / flush face / half overlay), grip (pull / edge pull / routed groove / cut-out / Gola channel / TIP-ON), front surface (slab / fluted / slatted / slim shaker), base (toe kick / plinth / legs / wall-hung), ends and edges, top, interior, run construction (separate boxes vs shared gables). Plus global reveals (3mm between, 1.5mm at ends) and 5 named presets. Visual sheet `research/style_switches.png` (from `research/style_switches.py`, matplotlib) was opened on Blake's screen.
 Engine takeaway: `mount` is a box-level parameter (it moves hinge plates, runners and system holes); grip and surface are operations on a front; base, ends, fillers and top are add-on parts; the run builder chooses separate boxes or shared gables. Vanity v0 = Classic Euro preset, wall-hung, exposed ply. Inset and fluted come next (most CNC-friendly).
+
+---
+
+## 2026-10-23: Session 2 (cont.): engine v0.1 built
+
+**Blake:** missing style = **recessed inset** (fronts set in ~1/2-3/4" so the top, sides and bottom stand proud). Added to STYLES.md as `mount: inset` + `insetSetback`. Then: "make the engine, then layer on the next pieces until we can do a proper test: scan the wall, generate the model, see it in AR, send the files to a builder or an existing platform."
+
+**Built (`engine/`, TypeScript, run directly by Node 24, no build step):**
+- Box primitive + front layout + hardware in `src/cabinet.ts`; runs/top/sinks/plumbing in `src/run.ts`. All holes and dados are placed in 3D world coordinates, then projected to each part's face (`src/flatten.ts`), so the 3D model and the CNC file can't disagree.
+- Catalog as JSON (`catalog/`): Baltic birch 18/15/12/6 + 4x8 ply, Blum CLIP top overlay/inset, Blum TANDEM 563H, a generic tab pull, 2 generic vessel sinks, a vessel faucet. Unconfirmed numbers carry `verify` notes that print on the job sheet.
+- Outputs per job: `preview.html` (three.js, open doors/pull drawers), `jobsheet.html`, layered DXF per sheet, `cutlist.csv`, `parts.json` (for AR, incl. sink/faucet/pull fixtures).
+- Samples: `specs/vanity-30-doors.json` (v0 test piece), `vanity-48-run.json` (sink cab + 3-drawer bank), `vanity-30-recessed.json`.
+- Checks: 26 tests incl. a joinery-overlap test (mutation-checked: a broken rabbet makes it fail); ezdxf audit = 0 errors; I checked the right side's mirrored hole layout and the door hinge/pull positions by hand against the rendered DXF.
+- Behaviors that came out of testing: the sink bowl is pushed forward automatically so a faucet fits behind it; a drawer under a sink drain is refused with a warning (U-drawer not built yet).
+
+**Housekeeping:** port 8769 is used by another local python server; I used 8771 for testing and stopped it. Playwright browser closed. `jobs/` is generated (gitignored); rebuild with `npm run samples`.
+
+**Open questions for Blake:**
+1. Check the Blum numbers flagged on the job sheet (hinge cup edge distance for 18mm overlay on an 18mm side; TANDEM screw-hole height, rear screw positions, rear hook hole, whether the drawer back needs notching).
+2. Measured ply thicknesses → `catalog/materials.json`.
+3. "Top-mounted pull": a tab that wraps over the top edge (then the 3mm top gap under the counter is too tight), or a pull on the face near the top? The engine currently screws it from behind near the top edge.
+4. Box joinery: dado/rabbet + glue + confirmat (current default) OK?
+
+**Next:** hinge test cut → test vanity on Blake's machine. Engine: U-drawer, toe kick/legs, flush face, half overlay/shared gables, adjustable shelves. Then the iPhone app.

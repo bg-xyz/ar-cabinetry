@@ -1,0 +1,9 @@
+{
+  "bb18": { "name": "Baltic birch 18mm (3/4\")", "thickness": 18.0, "sheet": [1525, 1525],
+            "verify": "Nominal. Measure the real sheet with calipers and put that number here; every dado width comes from it." },
+  "bb15": { "name": "Baltic birch 15mm (5/8\")", "thickness": 15.0, "sheet": [1525, 1525], "verify": "Nominal; measure." },
+  "bb12": { "name": "Baltic birch 12mm (1/2\")", "thickness": 12.0, "sheet": [1525, 1525], "verify": "Nominal; measure." },
+  "bb6":  { "name": "Baltic birch 6mm (1/4\")",  "thickness": 6.0,  "sheet": [1525, 1525], "verify": "Nominal; measure." },
+  "ply34": { "name": "Cabinet ply 3/4\" (23/32\", 4x8)", "thickness": 18.26, "sheet": [2440, 1220], "verify": "Nominal; measure." },
+  "ply14": { "name": "Cabinet ply 1/4\" (7/32\", 4x8)",  "thickness": 5.56,  "sheet": [2440, 1220], "verify": "Nominal; measure." }
+}

@@ -51,7 +51,10 @@ Three layers, all in code:
 
 **AR placement:** RoomPlan gives each wall's position and orientation. Cabinets snap to a wall and get a world anchor, so they stay locked in place while you walk around and look from every angle.
 
-### Phase 0: the cabinet engine (Windows, no Mac needed) ← **we are here**
+### Status (2026-10-23)
+**Engine v0.1 is built and tested** in `engine/` (see `engine/README.md`; VCarve setup in `engine/VCARVE.md`). `npm run samples` builds 3 sample vanities into `jobs/`; `npm test` runs 26 checks, including a joinery-overlap check; DXFs pass an independent ezdxf audit (`tools/check_dxf.py`). Supports: overlay, inset and recessed inset; doors (single/pair) and drawers; pull, groove or push grips; wall-hung runs; ply countertop with vessel sink + faucet; plumbing cutouts; drawer-under-sink refusal. **Next:** Blake checks the flagged Blum numbers + measures ply → hinge test cut → full test vanity. Then: U-drawer, toe kick/legs, flush-face/half-overlay, shelves, then the iPhone app (RoomPlan → spec → this engine via JavaScriptCore → RealityKit from `parts.json`).
+
+### Phase 0: the cabinet engine (Windows, no Mac needed) ← built, see Status
 A generator that turns cabinet parameters into cut-ready files:
 - Input: overall W/H/D, material thickness, door/drawer layout, hardware choice, plumbing cutout.
 - Output: a **DXF already laid out on the sheet**, plus a parts list/cut list and an assembly sheet.

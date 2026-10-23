@@ -1,0 +1,13 @@
+{
+  "name": "Vanity 30\": recessed inset (fronts set back 5/8\")",
+  "units": "in",
+  "style": { "preset": "recessed-inset", "insetSetback": 0.625 },
+  "mounting": "wall-hung",
+  "elevation": 10.25,
+  "cabinets": [
+    { "id": "A", "width": 30, "height": 20, "depth": 20,
+      "zones": [ { "type": "doors", "size": "fill", "count": 2 } ] }
+  ],
+  "top": { "material": "bb18", "overhangSides": 0, "overhangFront": 0.5 },
+  "sinks": [ { "cabinet": "A", "sink": "vessel-round-16", "faucet": "vessel-single-hole" } ]
+}

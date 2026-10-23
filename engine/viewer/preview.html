@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cabinet preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #e9e6e1; font: 14px system-ui, sans-serif; overflow: hidden; }
+  #ui { position: absolute; top: 12px; left: 12px; background: rgba(255,255,255,.92); padding: 10px 14px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  #ui h1 { font-size: 15px; margin: 0 0 4px; }
+  #ui label { display: block; margin-top: 4px; cursor: pointer; }
+  #info { color: #555; font-size: 12px; }
+  #hover { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,.7); color: #fff; padding: 4px 10px; border-radius: 6px; display: none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="ui">
+  <h1 id="title"></h1>
+  <div id="info"></div>
+  <label><input type="checkbox" id="fronts" checked> Fronts</label>
+  <label><input type="checkbox" id="top" checked> Countertop</label>
+  <label><input type="checkbox" id="open"> Pull drawers / open doors</label>
+  <label><input type="checkbox" id="room" checked> Wall + floor</label>
+  <div id="info2" style="margin-top:6px;color:#777;font-size:12px">Drag to orbit, scroll to zoom, right-drag to pan</div>
+</div>
+<div id="hover"></div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const DATA = /*PARTS_JSON*/null;
+document.getElementById('title').textContent = DATA.name;
+const ov = DATA.overall;
+const inch = (mm) => (mm / 25.4).toFixed(1) + '"';
+document.getElementById('info').textContent = `${DATA.style} - ${inch(ov.width)} W x ${inch(ov.height)} H x ${inch(ov.depth)} D`;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe9e6e1);
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 10, 20000);
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x998877, 1.1));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(-800, 2200, 2400);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -2000, right: 2000, top: 2000, bottom: -2000, far: 6000 });
+scene.add(sun);
+
+// plywood face + a darker edge band to suggest the exposed ply edge
+const COLORS = { side: 0xe3c896, bottom: 0xe3c896, stretcher: 0xd9bd88, back: 0xd8c8a6, rail: 0xcdb17c, top: 0xd6b47a,
+  door: 0xc99a5b, drawerFront: 0xc99a5b, drawerSide: 0xe9d7b0, drawerBoxFront: 0xe9d7b0, drawerBack: 0xe9d7b0, drawerBottom: 0xddd0b4 };
+const group = new THREE.Group();
+group.position.y = ov.elevation;
+scene.add(group);
+const meshes = [];
+for (const p of DATA.parts) {
+  const [sx, sy, sz] = p.box.size, [mx, my, mz] = p.box.min;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz),
+    new THREE.MeshStandardMaterial({ color: COLORS[p.role] ?? 0xcccccc, roughness: .75 }));
+  mesh.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
+  mesh.castShadow = mesh.receiveShadow = true;
+  mesh.userData = p;
+  mesh.userData.home = mesh.position.clone();
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0x6b5236 }));
+  mesh.add(edges);
+  group.add(mesh);
+  meshes.push(mesh);
+}
+
+// bought items: sink bowl, faucet, pulls
+const fixtures = [];
+const white = new THREE.MeshStandardMaterial({ color: 0xf8f8f6, roughness: .25 });
+const metal = new THREE.MeshStandardMaterial({ color: 0x2b2b2b, roughness: .35, metalness: .6 });
+for (const f of DATA.fixtures ?? []) {
+  const [sx, sy, sz] = f.box.size, [mx, my, mz] = f.box.min;
+  const c = new THREE.Vector3(mx + sx / 2, my + sy / 2, mz + sz / 2);
+  let obj;
+  if (f.kind === 'sink') {
+    obj = f.shape === 'round'
+      ? new THREE.Mesh(new THREE.CylinderGeometry(sx / 2, sx / 2 * 0.72, sy, 48, 1, true), white)
+      : new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), white);
+    white.side = THREE.DoubleSide;
+  } else if (f.kind === 'faucet') {
+    obj = new THREE.Group();
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(15, 18, sy, 24), metal);
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 170, 16), metal);
+    spout.rotation.x = Math.PI / 2; spout.position.set(0, sy / 2 - 12, 85);
+    obj.add(post, spout);
+  } else {
+    obj = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), metal);
+  }
+  obj.position.copy(c);
+  obj.traverse((m) => { m.castShadow = true; });
+  obj.userData = { kind: f.kind, home: c.clone() };
+  group.add(obj);
+  fixtures.push(obj);
+}
+
+const room = new THREE.Group();
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshStandardMaterial({ color: 0xbfb6a8 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; floor.position.set(ov.width / 2, 0, 1500);
+const wall = new THREE.Mesh(new THREE.PlaneGeometry(6000, 2700), new THREE.MeshStandardMaterial({ color: 0xf4f1ec }));
+wall.position.set(ov.width / 2, 1350, -1); wall.receiveShadow = true;
+room.add(floor, wall);
+scene.add(room);
+
+const center = new THREE.Vector3(ov.width / 2, ov.elevation + ov.height / 2, ov.depth / 2);
+camera.position.set(center.x + ov.width * 0.9, center.y + 500, ov.depth + Math.max(ov.width, 900) * 1.6);
+controls.target.copy(center);
+controls.update();
+
+const isFront = (r) => r === 'door' || r === 'drawerFront';
+const isDrawer = (r) => r.startsWith('drawer');
+function apply() {
+  const showFronts = document.getElementById('fronts').checked;
+  const open = document.getElementById('open').checked;
+  for (const m of meshes) {
+    const r = m.userData.role;
+    m.visible = r === 'top' ? document.getElementById('top').checked : isFront(r) ? showFronts : true;
+    m.position.copy(m.userData.home);
+    m.rotation.set(0, 0, 0);
+    if (open && isDrawer(r)) m.position.z += 300;
+    if (open && r === 'door') {
+      // swing about the hinge edge
+      const left = m.userData.name.includes('left');
+      const b = m.userData.box, pivotX = left ? b.min[0] : b.min[0] + b.size[0];
+      const ang = (left ? -1 : 1) * Math.PI * 0.55;
+      const off = new THREE.Vector3(m.position.x - pivotX, 0, m.position.z - b.min[2]);
+      off.applyAxisAngle(new THREE.Vector3(0, 1, 0), ang);
+      m.position.set(pivotX + off.x, m.position.y, b.min[2] + off.z);
+      m.rotation.y = ang;
+    }
+  }
+  for (const f of fixtures) {
+    f.visible = f.userData.kind === 'pull' ? showFronts && !open : document.getElementById('top').checked;
+  }
+  room.visible = document.getElementById('room').checked;
+}
+for (const id of ['fronts', 'top', 'open', 'room']) document.getElementById(id).addEventListener('change', apply);
+
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), hover = document.getElementById('hover');
+addEventListener('pointermove', (e) => {
+  mouse.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(meshes.filter((m) => m.visible), false)[0];
+  hover.style.display = hit ? 'block' : 'none';
+  if (hit) { const p = hit.object.userData; hover.textContent = `${p.id} - ${p.name} (${p.box.size.map((v) => v.toFixed(0)).join(' x ')} mm)`; }
+});
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+window.__ready = true;
+</script>
+</body>
+</html>

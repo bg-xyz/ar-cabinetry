@@ -1,0 +1,16 @@
+{
+  "name": "ar-cabinetry-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Parametric Euro cabinet engine: run spec -> parts -> AR model + CNC job package",
+  "scripts": {
+    "samples": "node src/cli.ts specs/vanity-30-doors.json && node src/cli.ts specs/vanity-48-run.json && node src/cli.ts specs/vanity-30-recessed.json",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^5.9.3"
+  }
+}
