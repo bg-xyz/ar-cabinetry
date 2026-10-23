@@ -3,3 +3,4 @@ jobs/
 .playwright-mcp/
 site/demo/
 site/CNAME
+PLYWISE_DNS.txt
