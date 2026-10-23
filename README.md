@@ -1,4 +1,4 @@
-# Cabinets (working title)
+# Make Room
 
 **Scan a room with your iPhone, get modern European cabinetry designed for that exact space, see it life-size in AR, and send CNC-ready files to a shop.**
 
@@ -30,5 +30,8 @@ Open `jobs/<name>/preview.html` to spin a design around (switch finishes, open t
 Engine v0.x: vanities, sideboards and built-in boxes are designed, nested and exported. The first test cut is pending a hinge test on the reference shop's machine. App v0.1: scan, tap a wall, place and view (TestFlight).
 
 Hardware data (Blum CLIP top, TANDEM) comes from Blum's published specs. Values not yet confirmed are flagged in `engine/catalog/*.json` and printed on every job sheet.
+
+## License
+Apache License 2.0. See `LICENSE`. Use it, build on it, ship it; contributions welcome.
 
 Wood textures: [ambientCG](https://ambientcg.com), CC0.
