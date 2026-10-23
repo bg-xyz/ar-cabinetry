@@ -4,42 +4,54 @@ import RealityKit
 import RoomPlan
 import UIKit
 
-/// Owns the AR view and the whole flow: scan the room (RoomPlan) -> tap a wall -> the cabinet
-/// locks onto that wall -> look at it from every angle, swap designs and finishes, nudge it.
+/// Owns the AR view and the whole flow: scan the room (RoomPlan, drawn live as it's measured) ->
+/// tap a wall -> the engine plans a cabinet for that wall's clear space -> it locks onto the wall ->
+/// look at it from every angle, change style, width and finishes, nudge it.
 /// RoomPlan scans on the AR view's own session, so the walls it measures and the cabinet we draw
 /// share one coordinate system: nothing has to be re-aligned after the scan.
 @MainActor
 final class ARController: ObservableObject {
     enum Phase { case start, scanning, processing, pickWall, placed, unsupported }
 
+    static let styles: [(name: String, preset: String)] = [
+        ("Classic Euro", "classic-euro"), ("Milan flush", "milan-flush"), ("Recessed inset", "recessed-inset"), ("Ply inset", "ply-inset"),
+    ]
+
     @Published var phase: Phase = .start
-    @Published var designIndex = 0 { didSet { if oldValue != designIndex { choice = FinishChoice(design: design); rebuild() } } }
-    @Published var choice: FinishChoice
     @Published var status = ""
+    @Published var scanSummary = ""
+    @Published var coaching = ""
+    @Published var notes: [String] = []
+    @Published var design: Design?
+    @Published var plan: PlanResult?
+    @Published var choice: FinishChoice?
+    @Published var stylePreset = "classic-euro"
+    @Published var widthChoice: Double?   // mm; nil = largest that fits
 
     let arView = ARView(frame: .zero, cameraMode: .ar, automaticallyConfigureSession: false)
-    let designs = DesignLibrary.load()
-    var design: Design { designs[designIndex] }
 
     private let lib = MaterialLibrary()
     private let scanDelegate = ScanDelegate()
-    private var captureView: RoomCaptureView?
+    private var session: RoomCaptureSession?
+    private var lastDraw = Date.distantPast
     private var room: CapturedRoom?
     private var walls: [String: CapturedRoom.Surface] = [:]
-    private var wallsAnchor: AnchorEntity?
+    private let roomAnchor = AnchorEntity(world: matrix_identity_float4x4)
     private let cabinetAnchor = AnchorEntity(world: matrix_identity_float4x4)
     private var cabinet: Entity?
     private var wall: CapturedRoom.Surface?
-    private var along: Float = 0      // m, cabinet centre from wall centre
+    private var frame: WallFrame?
+    private var along: Float = 0      // m, user nudge along the wall
     private var out: Float = 0        // m, gap between wall and cabinet back
-    private var flip = false          // wall normal points away from the room
 
     init() {
-        choice = FinishChoice(design: DesignLibrary.load().first ?? Design.empty)
+        arView.scene.addAnchor(roomAnchor)
         arView.scene.addAnchor(cabinetAnchor)
         arView.addGestureRecognizer(UITapGestureRecognizer(target: TapTarget.shared, action: #selector(TapTarget.tapped(_:))))
         TapTarget.shared.onTap = { [weak self] point in self?.tapped(at: point) }
-        scanDelegate.onResult = { [weak self] room in Task { @MainActor in self?.scanFinished(room) } }
+        scanDelegate.onUpdate = { [weak self] room in Task { @MainActor in self?.scanUpdated(room) } }
+        scanDelegate.onInstruction = { [weak self] i in Task { @MainActor in self?.coaching = Self.coachingText(i) } }
+        scanDelegate.onEnd = { [weak self] data, error in Task { @MainActor in await self?.scanEnded(data, error) } }
         let config = ARWorldTrackingConfiguration()
         config.environmentTexturing = .automatic
         arView.session.run(config)
@@ -51,25 +63,44 @@ final class ARController: ObservableObject {
         guard RoomCaptureSession.isSupported else { phase = .unsupported; return }
         cabinet?.removeFromParent()
         cabinet = nil
-        wallsAnchor?.removeFromParent()
-        let view = RoomCaptureView(frame: arView.bounds, arSession: arView.session)
-        view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        view.delegate = scanDelegate
-        arView.addSubview(view)
-        view.captureSession.run(configuration: RoomCaptureSession.Configuration())
-        captureView = view
+        roomAnchor.children.removeAll()
+        notes = []
+        let s = RoomCaptureSession(arSession: arView.session)
+        s.delegate = scanDelegate
+        s.run(configuration: RoomCaptureSession.Configuration())
+        session = s
+        scanSummary = "Point at a wall to start"
+        coaching = ""
         phase = .scanning
     }
 
     func finishScan() {
-        captureView?.captureSession.stop(pauseARSession: false)
+        session?.stop(pauseARSession: false)
         phase = .processing
+    }
+
+    /// Live: redraw what RoomPlan has found so far (a few times a second).
+    private func scanUpdated(_ room: CapturedRoom) {
+        guard phase == .scanning, Date().timeIntervalSince(lastDraw) > 0.35 else { return }
+        lastDraw = Date()
+        draw(room, labels: true)
+        scanSummary = Self.summary(room)
+    }
+
+    private func scanEnded(_ data: CapturedRoomData?, _ error: Error?) async {
+        guard let data else { status = error?.localizedDescription ?? "The scan didn't finish. Try again."; phase = .start; return }
+        do {
+            let room = try await RoomBuilder(options: [.beautifyObjects]).capturedRoom(from: data)
+            scanFinished(room)
+        } catch {
+            status = "Couldn't finish the room: \(error.localizedDescription)"
+            phase = .start
+        }
     }
 
     private func scanFinished(_ room: CapturedRoom) {
         self.room = room
-        captureView?.removeFromSuperview()
-        captureView = nil
+        session = nil
         // keep tracking in the same world space, and let real things hide the cabinet (LiDAR mesh)
         let config = ARWorldTrackingConfiguration()
         config.environmentTexturing = .automatic
@@ -79,26 +110,110 @@ final class ARController: ObservableObject {
         showWalls()
     }
 
+    static func summary(_ room: CapturedRoom) -> String {
+        func n(_ count: Int, _ word: String) -> String { "\(count) \(word)\(count == 1 ? "" : "s")" }
+        var parts = [n(room.walls.count, "wall")]
+        if !room.doors.isEmpty { parts.append(n(room.doors.count, "door")) }
+        if !room.windows.isEmpty { parts.append(n(room.windows.count, "window")) }
+        let found = room.objects.compactMap { o -> String? in
+            switch o.category {
+            case .sink: return "sink"
+            case .toilet: return "toilet"
+            case .bathtub: return "tub"
+            default: return nil
+            }
+        }
+        for f in Set(found).sorted() { parts.append("\(f) \u{2713}") }
+        return parts.joined(separator: " \u{00B7} ")
+    }
+
+    static func coachingText(_ i: RoomCaptureSession.Instruction) -> String {
+        switch i {
+        case .moveCloseToWall: return "Move a little closer to the wall"
+        case .moveAwayFromWall: return "Step back from the wall"
+        case .slowDown: return "Slow down"
+        case .turnOnLight: return "Turn on more light"
+        case .lowTexture: return "Point at walls with more detail"
+        default: return ""
+        }
+    }
+
+    // MARK: drawing the measured room
+
+    /// Walls teal, doors orange, windows blue, openings yellow, fixtures as boxes; wall lengths written on the walls.
+    private func draw(_ room: CapturedRoom, labels: Bool) {
+        roomAnchor.children.removeAll()
+        walls = [:]
+        let cam = arView.cameraTransform.translation
+        for w in room.walls {
+            let plane = Self.plane(w, color: UIColor.systemTeal.withAlphaComponent(0.32), towards: cam, lift: 0)
+            plane.name = w.identifier.uuidString
+            plane.generateCollisionShapes(recursive: false)
+            roomAnchor.addChild(plane)
+            walls[plane.name] = w
+            if labels {
+                let p = RoomAnalysis.position(w.transform) + SIMD3<Float>(0, min(w.dimensions.y / 2 - 0.25, 0.4), 0)
+                roomAnchor.addChild(Self.label(RoomAnalysis.feetInches(w.dimensions.x), at: p, facing: cam, size: 0.09))
+            }
+        }
+        for (list, color) in [(room.doors, UIColor.systemOrange), (room.windows, UIColor.systemBlue), (room.openings, UIColor.systemYellow)] {
+            for s in list { roomAnchor.addChild(Self.plane(s, color: color.withAlphaComponent(0.45), towards: cam, lift: 0.012)) }
+        }
+        for o in room.objects {
+            let box = ModelEntity(mesh: .generateBox(size: o.dimensions), materials: [SimpleMaterial(color: UIColor.white.withAlphaComponent(0.28), isMetallic: false)])
+            box.transform = Transform(matrix: o.transform)
+            roomAnchor.addChild(box)
+            let name: String?
+            switch o.category {
+            case .sink: name = "Sink"
+            case .toilet: name = "Toilet"
+            case .bathtub: name = "Tub"
+            case .storage: name = "Cabinet"
+            default: name = nil
+            }
+            if let name, labels {
+                let top = RoomAnalysis.position(o.transform) + SIMD3<Float>(0, o.dimensions.y / 2 + 0.08, 0)
+                roomAnchor.addChild(Self.label(name, at: top, facing: cam, size: 0.06))
+            }
+        }
+    }
+
+    private static func plane(_ s: CapturedRoom.Surface, color: UIColor, towards cam: SIMD3<Float>, lift: Float) -> ModelEntity {
+        let e = ModelEntity(mesh: .generatePlane(width: s.dimensions.x, height: s.dimensions.y),
+                            materials: [SimpleMaterial(color: color, isMetallic: false)])
+        e.transform = Transform(matrix: s.transform)
+        if lift > 0 {   // float doors/windows just in front of their wall so they don't flicker
+            var n = SIMD3<Float>(s.transform.columns.2.x, s.transform.columns.2.y, s.transform.columns.2.z)
+            if simd_dot(n, cam - RoomAnalysis.position(s.transform)) < 0 { n = -n }
+            e.position += n * lift
+        }
+        return e
+    }
+
+    /// Flat text that faces the camera.
+    private static func label(_ text: String, at p: SIMD3<Float>, facing cam: SIMD3<Float>, size: CGFloat) -> Entity {
+        let mesh = MeshResource.generateText(text, extrusionDepth: 0.002, font: .systemFont(ofSize: size, weight: .bold),
+                                             containerFrame: .zero, alignment: .center, lineBreakMode: .byWordWrapping)
+        let text = ModelEntity(mesh: mesh, materials: [UnlitMaterial(color: .white)])
+        text.position = SIMD3<Float>(-mesh.bounds.center.x, -mesh.bounds.center.y, 0)
+        let holder = Entity()
+        holder.addChild(text)
+        // look(at:) points -z at the target; the text's front is +z, so look away from the camera
+        holder.look(at: p + (p - cam), from: p, relativeTo: nil)
+        return holder
+    }
+
     // MARK: pick a wall
 
     func showWalls() {
         guard let room else { return }
-        wallsAnchor?.removeFromParent()
-        let anchor = AnchorEntity(world: matrix_identity_float4x4)
-        walls = [:]
-        for w in room.walls {
-            let plane = ModelEntity(mesh: .generatePlane(width: w.dimensions.x, height: w.dimensions.y),
-                                    materials: [SimpleMaterial(color: UIColor.systemTeal.withAlphaComponent(0.35), isMetallic: false)])
-            plane.transform = Transform(matrix: w.transform)
-            plane.name = w.identifier.uuidString
-            plane.generateCollisionShapes(recursive: false)
-            anchor.addChild(plane)
-            walls[plane.name] = w
-        }
-        arView.scene.addAnchor(anchor)
-        wallsAnchor = anchor
+        cabinet?.removeFromParent()
+        cabinet = nil
+        draw(room, labels: true)
+        roomAnchor.isEnabled = true
+        notes = []
         phase = .pickWall
-        status = room.walls.isEmpty ? "No walls found. Try scanning again." : "Tap the wall for your cabinet"
+        status = room.walls.isEmpty ? "No walls found. Try scanning again." : "Tap the wall for your vanity"
     }
 
     private func tapped(at point: CGPoint) {
@@ -106,48 +221,51 @@ final class ARController: ObservableObject {
         place(on: w)
     }
 
+    private func wallFrame(_ w: CapturedRoom.Surface) -> WallFrame {
+        let c = RoomAnalysis.position(w.transform)
+        let y = SIMD3<Float>(0, 1, 0)
+        let along = simd_normalize(SIMD3<Float>(w.transform.columns.0.x, 0, w.transform.columns.0.z))
+        var z = simd_cross(along, y)
+        if simd_dot(z, arView.cameraTransform.translation - c) < 0 { z = -z }   // into the room, toward you
+        return WallFrame(x: simd_cross(y, z), z: z, c: c, length: w.dimensions.x, floorY: c.y - w.dimensions.y / 2)
+    }
+
     private func place(on w: CapturedRoom.Surface) {
         wall = w
-        wallsAnchor?.isEnabled = false
-        let c = SIMD3<Float>(w.transform.columns.3.x, w.transform.columns.3.y, w.transform.columns.3.z)
-        flip = simd_dot(normalOf(w), arView.cameraTransform.translation - c) < 0
+        frame = wallFrame(w)
+        along = 0
         out = 0
-        along = sinkOffset(on: w) ?? 0
-        rebuild()
-        phase = .placed
+        widthChoice = nil
+        replan()
     }
 
-    /// If RoomPlan found a sink against this wall, centre the new vanity on it (that's where the plumbing is).
-    private func sinkOffset(on w: CapturedRoom.Surface) -> Float? {
-        guard let room else { return nil }
-        let (x, _, z, c) = basis(w)
-        let sinks = room.objects.filter { $0.category == .sink }.map { o -> SIMD3<Float> in
-            SIMD3(o.transform.columns.3.x, o.transform.columns.3.y, o.transform.columns.3.z) - c
+    /// Ask the engine for the best cabinet for this wall's clear space, then show it.
+    func replan() {
+        guard let w = wall, let f = frame, let room else { return }
+        let (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room)
+        let input = PlanInput(wallLength: Double(f.length * 1000), obstacles: obstacles, sinkAt: sinkAt,
+                              width: widthChoice, style: ["preset": stylePreset])
+        do {
+            let (p, d) = try Engine.shared.plan(input)
+            plan = p
+            if choice == nil { choice = FinishChoice(design: d) }
+            design = d
+            notes = p.notes
+            roomAnchor.isEnabled = false
+            rebuild()
+            phase = .placed
+            status = "\(p.name) \u{00B7} \(d.style)"
+        } catch {
+            status = error.localizedDescription
+            notes = []
+            phase = .pickWall
         }
-        guard let s = sinks.filter({ abs(simd_dot($0, z)) < 0.8 && abs(simd_dot($0, x)) < w.dimensions.x / 2 })
-            .min(by: { abs(simd_dot($0, z)) < abs(simd_dot($1, z)) }) else { return nil }
-        return simd_dot(s, x)
-    }
-
-    private func normalOf(_ w: CapturedRoom.Surface) -> SIMD3<Float> {
-        let x = simd_normalize(SIMD3<Float>(w.transform.columns.0.x, 0, w.transform.columns.0.z))
-        return simd_cross(x, SIMD3<Float>(0, 1, 0))
-    }
-
-    /// Wall frame: x along the wall, y up, z out of the wall into the room, c = wall centre.
-    private func basis(_ w: CapturedRoom.Surface) -> (SIMD3<Float>, SIMD3<Float>, SIMD3<Float>, SIMD3<Float>) {
-        let y = SIMD3<Float>(0, 1, 0)
-        var z = normalOf(w)
-        if flip { z = -z }
-        let x = simd_cross(y, z)
-        let c = SIMD3<Float>(w.transform.columns.3.x, w.transform.columns.3.y, w.transform.columns.3.z)
-        return (x, y, z, c)
     }
 
     // MARK: the cabinet
 
     func rebuild() {
-        guard let w = wall, !designs.isEmpty else { return }
+        guard let design, let choice else { return }
         cabinet?.removeFromParent()
         let e = CabinetBuilder.build(design, choice: choice, lib: lib)
         let light = DirectionalLight()
@@ -157,56 +275,71 @@ final class ARController: ObservableObject {
         light.look(at: SIMD3<Float>(0.6, 0.4, 0.3), from: SIMD3<Float>(-0.3, 2.4, 1.6), relativeTo: e)
         cabinetAnchor.addChild(e)
         cabinet = e
-        position(on: w)
-        status = "\(design.overall.width.inchesText) wide \u{00B7} \(design.style)"
+        position()
     }
 
-    private func position(on w: CapturedRoom.Surface) {
-        guard let cabinet else { return }
-        let (x, y, z, c) = basis(w)
-        let width = Float(design.overall.width / 1000)
-        let floorY = c.y - w.dimensions.y / 2
-        let origin = SIMD3<Float>(c.x, floorY, c.z) + x * (along - width / 2) + z * out
-        cabinet.transform = Transform(matrix: simd_float4x4(SIMD4(x, 0), SIMD4(y, 0), SIMD4(z, 0), SIMD4(origin, 1)))
+    private func position() {
+        guard let cabinet, let f = frame, let plan else { return }
+        let left = Float(plan.x0 / 1000) - f.length / 2 + along
+        let origin = SIMD3<Float>(f.c.x, f.floorY, f.c.z) + f.x * left + f.z * out
+        cabinet.transform = Transform(matrix: simd_float4x4(SIMD4(f.x, 0), SIMD4(0, 1, 0, 0), SIMD4(f.z, 0), SIMD4(origin, 1)))
     }
 
     /// Slide along the wall (right +) or away from it, in inches.
     func nudge(along dx: Float = 0, out dz: Float = 0) {
-        guard let w = wall else { return }
         along += dx * 0.0254
         out = max(0, out + dz * 0.0254)
-        position(on: w)
+        position()
+    }
+
+    func setStyle(_ preset: String) {
+        stylePreset = preset
+        replan()
+    }
+
+    func setWidth(_ mm: Double?) {
+        widthChoice = mm
+        along = 0
+        replan()
+    }
+
+    /// Standard widths that fit the clear stretch the cabinet sits in.
+    var widthOptions: [Double] {
+        guard let span = plan?.span, span.count == 2 else { return [] }
+        let avail = span[1] - span[0] - 25.4
+        return [24, 30, 36, 42, 48, 54, 60, 66, 72, 84].map { $0 * 25.4 }.filter { $0 <= avail + 0.01 }
     }
 
     func setFinish(_ slot: FinishSlot, _ id: String) {
+        guard var c = choice else { return }
         switch slot {
-        case .fronts: choice.fronts = id
-        case .cabinet: choice.cabinet = id
-        case .top: choice.top = id
+        case .fronts: c.fronts = id
+        case .cabinet: c.cabinet = id
+        case .top: c.top = id
         case .fixedBirch: return
         }
+        choice = c
         rebuild()
     }
 
     func pickAnotherWall() {
-        cabinet?.removeFromParent()
-        cabinet = nil
-        wallsAnchor?.isEnabled = true
-        phase = .pickWall
-        status = "Tap the wall for your cabinet"
+        showWalls()
     }
 }
 
-/// RoomPlan's delegate protocol requires NSCoding, so it lives in its own small class.
-final class ScanDelegate: NSObject, RoomCaptureViewDelegate {
-    var onResult: ((CapturedRoom) -> Void)?
+/// RoomPlan session callbacks, forwarded as closures.
+final class ScanDelegate: NSObject, RoomCaptureSessionDelegate, NSCoding {
+    var onUpdate: ((CapturedRoom) -> Void)?
+    var onInstruction: ((RoomCaptureSession.Instruction) -> Void)?
+    var onEnd: ((CapturedRoomData?, Error?) -> Void)?
 
     override init() { super.init() }
     required init?(coder: NSCoder) { super.init() }
     func encode(with coder: NSCoder) {}
 
-    func captureView(shouldPresent roomDataForProcessing: CapturedRoomData, error: Error?) -> Bool { true }
-    func captureView(didPresent processedResult: CapturedRoom, error: Error?) { onResult?(processedResult) }
+    func captureSession(_ session: RoomCaptureSession, didUpdate room: CapturedRoom) { onUpdate?(room) }
+    func captureSession(_ session: RoomCaptureSession, didProvide instruction: RoomCaptureSession.Instruction) { onInstruction?(instruction) }
+    func captureSession(_ session: RoomCaptureSession, didEndWith data: CapturedRoomData, error: Error?) { onEnd?(data, error) }
 }
 
 /// Target for the AR view's tap gesture (selectors need an NSObject).
@@ -218,9 +351,4 @@ final class TapTarget: NSObject {
         guard let view = g.view else { return }
         onTap?(g.location(in: view))
     }
-}
-
-extension Design {
-    static let empty = Design(name: "", style: "", overall: .init(width: 0, height: 0, depth: 0, elevation: 0),
-                              parts: [], fixtures: [], finishes: [:], order: 0)
 }

@@ -14,17 +14,26 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             ARViewContainer(arView: ar.arView).ignoresSafeArea()
-            VStack(spacing: 12) {
-                if !ar.status.isEmpty && ar.phase != .start {
-                    Text(ar.status)
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 14).padding(.vertical, 8)
-                        .background(.ultraThinMaterial, in: Capsule())
-                }
+            VStack(spacing: 10) {
+                topBanner
                 Spacer()
                 controls
             }
             .padding()
+        }
+    }
+
+    @ViewBuilder private var topBanner: some View {
+        switch ar.phase {
+        case .scanning:
+            VStack(spacing: 6) {
+                Pill(text: ar.scanSummary, bold: true)
+                if !ar.coaching.isEmpty { Pill(text: ar.coaching, bold: false) }
+            }
+        case .start:
+            if !ar.status.isEmpty { Pill(text: ar.status, bold: false) }
+        default:
+            if !ar.status.isEmpty { Pill(text: ar.status, bold: true) }
         }
     }
 
@@ -34,7 +43,7 @@ struct ContentView: View {
             Panel {
                 Text("Plywise").font(.largeTitle.bold())
                 Text("Make room.").font(.title3.weight(.semibold)).foregroundStyle(.secondary)
-                Text("Scan your room, tap a wall, and see a real cabinet built for that space, life-size, in the room.")
+                Text("Scan your room, tap a wall, and Plywise designs a cabinet that fits the space, life-size, in the room.")
                     .font(.callout).foregroundStyle(.secondary)
                 Button { ar.startScan() } label: {
                     Label("Scan the room", systemImage: "viewfinder").frame(maxWidth: .infinity)
@@ -43,7 +52,7 @@ struct ContentView: View {
             }
         case .scanning:
             Panel {
-                Text("Walk slowly around the room. Point at every wall, top to bottom.")
+                Text("Walk slowly around the room. Walls light up teal as they're measured; doors orange, windows blue.")
                     .font(.callout)
                 Button { ar.finishScan() } label: { Text("Done scanning").frame(maxWidth: .infinity) }
                     .buttonStyle(.borderedProminent).controlSize(.large)
@@ -52,7 +61,8 @@ struct ContentView: View {
             Panel { ProgressView("Measuring your walls...") }
         case .pickWall:
             Panel {
-                Text("Tap a highlighted wall.").font(.callout)
+                Text("Tap the wall where the vanity goes. Plywise sizes it to the clear space, around doors and the toilet.")
+                    .font(.callout)
                 Button("Scan again") { ar.startScan() }
             }
         case .placed:
@@ -67,17 +77,28 @@ struct ContentView: View {
 
     private var placedControls: some View {
         Panel {
-            Menu {
-                ForEach(Array(ar.designs.enumerated()), id: \.offset) { i, d in
-                    Button(d.name) { ar.designIndex = i }
-                }
-            } label: {
-                Label(ar.design.name, systemImage: "cabinet").font(.subheadline.weight(.semibold)).lineLimit(2)
+            ForEach(ar.notes, id: \.self) { note in
+                Label(note, systemImage: "ruler").font(.footnote).labelStyle(.titleAndIcon)
             }
             HStack {
-                finishMenu("Fronts", .fronts, ar.choice.fronts)
-                finishMenu("Cabinet", .cabinet, ar.choice.cabinet)
-                if ar.design.parts.contains(where: { $0.role == "top" }) { finishMenu("Top", .top, ar.choice.top) }
+                Menu {
+                    ForEach(ARController.styles, id: \.preset) { s in
+                        Button { ar.setStyle(s.preset) } label: { checkLabel(s.name, s.preset == ar.stylePreset) }
+                    }
+                } label: { MenuChip(title: "Style", value: ARController.styles.first { $0.preset == ar.stylePreset }?.name ?? "") }
+                Menu {
+                    Button { ar.setWidth(nil) } label: { checkLabel("Best fit", ar.widthChoice == nil) }
+                    ForEach(ar.widthOptions, id: \.self) { w in
+                        Button { ar.setWidth(w) } label: { checkLabel("\(Int((w / 25.4).rounded()))\"", ar.widthChoice == w) }
+                    }
+                } label: { MenuChip(title: "Width", value: ar.plan.map { "\(Int(($0.width / 25.4).rounded()))\"" } ?? "") }
+            }
+            if let design = ar.design, let choice = ar.choice {
+                HStack {
+                    finishMenu("Fronts", .fronts, choice.fronts, design)
+                    finishMenu("Cabinet", .cabinet, choice.cabinet, design)
+                    finishMenu("Top", .top, choice.top, design)
+                }
             }
             HStack(spacing: 10) {
                 nudge("arrow.left") { ar.nudge(along: -1) }
@@ -90,32 +111,49 @@ struct ContentView: View {
         }
     }
 
-    private func finishMenu(_ title: String, _ slot: FinishSlot, _ current: String) -> some View {
-        Menu {
-            ForEach(ar.design.finishes.keys.sorted(), id: \.self) { id in
-                Button { ar.setFinish(slot, id) } label: {
-                    if id == current { Label(ar.design.finishes[id]?.name ?? id, systemImage: "checkmark") }
-                    else { Text(ar.design.finishes[id]?.name ?? id) }
-                }
-            }
-        } label: {
-            VStack(spacing: 2) {
-                Text(title).font(.caption2).foregroundStyle(.secondary)
-                Text(shortName(current)).font(.footnote.weight(.semibold))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
-            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-        }
+    @ViewBuilder private func checkLabel(_ text: String, _ on: Bool) -> some View {
+        if on { Label(text, systemImage: "checkmark") } else { Text(text) }
     }
 
-    private func shortName(_ id: String) -> String {
-        ar.design.finishes[id]?.name.components(separatedBy: " (").first ?? id
+    private func finishMenu(_ title: String, _ slot: FinishSlot, _ current: String, _ design: Design) -> some View {
+        Menu {
+            ForEach(design.finishes.keys.sorted(), id: \.self) { id in
+                Button { ar.setFinish(slot, id) } label: { checkLabel(design.finishes[id]?.name ?? id, id == current) }
+            }
+        } label: {
+            MenuChip(title: title, value: design.finishes[current]?.name.components(separatedBy: " (").first ?? current)
+        }
     }
 
     private func nudge(_ icon: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: icon).frame(width: 36, height: 30) }
             .buttonStyle(.bordered)
+    }
+}
+
+struct MenuChip: View {
+    let title: String
+    let value: String
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(title).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.footnote.weight(.semibold)).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 6)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct Pill: View {
+    let text: String
+    let bold: Bool
+    var body: some View {
+        Text(text)
+            .font(bold ? .subheadline.weight(.semibold) : .footnote)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(.ultraThinMaterial, in: Capsule())
     }
 }
 
