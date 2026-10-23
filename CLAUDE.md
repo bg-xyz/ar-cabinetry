@@ -13,7 +13,9 @@ An iPhone AR app that:
 
 ## Ground rules (decided)
 
-- **Blake is not the manufacturer.** His shop is the **test/reference shop**: every design rule and file format is proven on his machine before any other shop sees it. No production orders.
+- **The product is the app. We are the middle layer** (design → job package → shop), never the producer. Blake's shop is only the **test/reference shop**: every design rule and file format is proven on his machine before any other shop sees it. No production orders. (Blake restated this firmly 2026-10-23.)
+- **Every cabinet is a box.** Contemporary Euro cabinetry is the same parametric box assembled in different combinations of doors and drawers, with one reveal standard, flat slab fronts and simple top-mounted pulls. Restricting the style is what makes the engine small and fast. (Blake's insight, 2026-10-23.)
+- **Materials are limited to 1/4"-3/4" plywood plus trim boards.** Backs are **captured in a dado and glued**. Material thickness is always the measured value, never the nominal one, because dado widths come from it.
 - **Start with a bath vanity** (decided 2026-10-22). Closets and bookshelves come next. Kitchens come last, if ever (countertops, appliances and plumbing make them the hardest).
 - **Flat-bed 3-axis only.** Every operation is machined from the top face of the sheet. **No edge boring** (a router can't drill into panel edges). This matches Blake's machine and the large pool of small VCarve/Aspire/ShopBot-class shops, which is the target supply side of the job board.
 - **Rules, not AI geometry.** Cabinets come from a parametric library on the 32mm system. AI can suggest layouts and styles, but every part dimension is computed by rules so it's always buildable.
@@ -25,10 +27,27 @@ An iPhone AR app that:
 - Software: **VCarve** for CAM and **Mach3** for machine control.
 - **No ATC.** Bits are changed by hand, so files must group operations by tool to keep bit changes to a minimum.
 - **No edge bander.** Design for exposed plywood edges (the modern Euro look, e.g. Reform/Plykea) or for materials that don't need banding.
-- Materials: wood and plastic sheet goods. *(Blake said "wood plastic". Confirm exact sheets and **measured** thicknesses before the first cut.)*
+- Materials: 1/4"-3/4" plywood + trim boards (see ground rules). He also cuts plastic. *(Get **measured** thicknesses before the first cut.)*
 - Blake has built several production-grade pieces. He's an experienced CNC user, so skip the basics.
 
 ## Technical plan
+
+### Engine architecture (decided 2026-10-23)
+
+Three layers, all in code:
+1. **Box primitive**: `box(W, H, D, material)` → sides, bottom, top/stretchers, dadoed back. Every part knows its own operations (dados, holes, cutouts).
+2. **Assembly grammar**: a cabinet is a box plus a **front layout**, e.g. `[drawer 6"] / [drawer rest]` or `[door pair]`. The layout sets the opening sizes, the reveal math (one global reveal, e.g. 3mm / 1/8") and the pull positions. Runs of boxes (a vanity, a closet wall) are lists of cabinets along a wall.
+3. **Hardware rules as data**: Blum hinge, plate and runner drilling patterns, and how drawer-box sizes follow from runner length, stored as JSON per hardware model and taken from Blum's published specs. This is the only part that really varies, and it's data, not code.
+
+**One model, several outputs.** The engine produces a neutral parts model (JSON). Small emitters turn it into:
+- **AR mesh**: every part is a box with a few holes, so the meshes are tiny and generate instantly on the phone.
+- **Layered DXF** (nested on sheets) for CNC.
+- **Cut list, hardware list, assembly sheet** (PDF/HTML).
+- **Job package** (all of the above zipped), which is the thing the job board brokers.
+
+**Language: TypeScript.** It runs in Node on Blake's PC now (Node 24 is installed), in the browser (job board / shop portal / web preview, free), and inside the iPhone app via JavaScriptCore. Swift reads the parts JSON and builds RealityKit meshes. One engine everywhere, so the AR model and the CNC file can never disagree. (Swift isn't installed on Windows and would be heavy, which is why I didn't pick it.)
+
+**AR placement:** RoomPlan gives each wall's position and orientation. Cabinets snap to a wall and get a world anchor, so they stay locked in place while you walk around and look from every angle.
 
 ### Phase 0: the cabinet engine (Windows, no Mac needed) ← **we are here**
 A generator that turns cabinet parameters into cut-ready files:
@@ -52,7 +71,7 @@ Vanity v0 starting spec (change freely):
 ### Phase 2: the iPhone app
 - Swift + RoomPlan + RealityKit. **Needs a LiDAR iPhone (Pro model)** for good scans. Confirm which iPhone Blake has.
 - Builds: Blake **already has a paid Apple developer account**, so the cloud-build → TestFlight route works without a Mac, the same way Ragtime does it. The used M1 Mac mini (AR Police Trainer) makes local testing nicer but isn't required.
-- The app calls the same cabinet engine (port it to Swift, or run it as a service).
+- The app runs the same TypeScript engine via JavaScriptCore (no server needed, works offline).
 
 ### Phase 3: the job board
 - Shops sign up with their machine profile (bed size, tool change, materials). Jobs are posted as file packages.
@@ -61,10 +80,11 @@ Vanity v0 starting spec (change freely):
 
 ## Open questions
 - Product name.
-- Exact materials and measured thicknesses; tooling list (bit diameters for the 5mm holes, cup pockets, dados, profiling).
+- Measured plywood thicknesses; tooling list (bit diameters for the 5mm holes, cup pockets, dados, profiling).
+- How boxes are joined (sides to bottom/top): dado + glue, plus confirmat/pocket screws or Cabineo? The backs are settled (captured dado, glued).
+- Pull style: one standard top-mounted pull (which one?), or edge pull / finger-groove options.
 - Which iPhone Blake has (LiDAR or not).
 - Vanity specifics: size, sink type, drawer vs door layout, Blum models.
-- Engine language: Python on Windows first, ported or wrapped for iOS later.
 
 ## Working notes for Claude
 - Blake wants me to lead: decide, build and test without approval loops. Show visuals as local images opened on screen, not claude.ai artifacts. Price free/one-time options first.

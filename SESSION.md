@@ -36,3 +36,26 @@ Newest at the bottom. Each entry covers what happened, what was decided, and wha
 1. Get from Blake: exact sheet materials + measured thicknesses, his bit list, his iPhone model, and vanity preferences (size, sink type, drawers vs doors).
 2. Build Phase 0: a Python cabinet engine → nested, layered DXF + cut list for vanity v0.
 3. Blake sets up the VCarve toolpath template once, then cuts and assembles the test vanity.
+
+---
+
+## 2026-10-23: Session 2: engine concept (Blake's thoughts)
+
+**What Blake said:**
+- Cabinets are just basic boxes assembled according to the number of doors and drawers. Euro/contemporary work shares the same reveal, flat slab fronts and simple top-mounted pulls.
+- So the engine can generate parametric boxes and assemble them into the right forms, all in code.
+- Limit materials to 1/4"-3/4" plywood and trim boards. Backs are captured in a dado and glued.
+- The only really dynamic variables are the hinge and drawer-slide hole positions, and Blum publishes those schematics.
+- The engine should be light enough to be fast and still output nice AR models that lock in place and can be viewed from every angle.
+- **Firm restatement:** the goal is the app. His CNC is only for testing outputs. We are the middle layer, never production.
+
+**Decided:**
+- Three-layer engine: box primitive → assembly grammar (front layouts, one global reveal) → hardware rules as JSON data.
+- One neutral parts model → emitters for AR mesh, layered DXF, cut/hardware list, job package.
+- **TypeScript** engine: runs in Node now, in the browser for the job board, and on the iPhone via JavaScriptCore. Swift only builds RealityKit meshes from the parts JSON.
+- AR: snap cabinets to RoomPlan walls + world anchors, so they stay locked in place while you walk around.
+- Details are in CLAUDE.md under "Engine architecture".
+
+**A few points I added to Blake's "only holes vary":** mostly true, but the engine also has to handle (a) door/drawer front sizes from the reveal and hinge overlay, (b) drawer-box sizes derived from the runner model (Blum specs), (c) dado widths from **measured** ply thickness, and (d) scribe/filler strips and plumbing cutouts. All of these are formulas, not new design work.
+
+**Next:** build the engine skeleton in TypeScript: box primitive + one vanity layout → parts JSON → DXF + 3D preview on the PC.
