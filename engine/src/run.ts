@@ -3,6 +3,7 @@
 
 import { lookup, resolveStyle } from './catalog.ts';
 import { buildCabinet } from './cabinet.ts';
+import { applyBanding } from './edges.ts';
 import type { CabinetOptions } from './cabinet.ts';
 import { specToMm } from './units.ts';
 import type { Catalog, Design, Fixture, HardwareLine, Part, RunSpec, Vec3, WorldOp } from './types.ts';
@@ -107,9 +108,24 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
       const joints = spec.cabinets.slice(1).map((c) => xAt[c.id]);
       xs.push(joints.length ? joints.reduce((a, b) => (Math.abs(b - totalW / 2) < Math.abs(a - totalW / 2) ? b : a)) : totalW / 2);
     }
-    for (const lx of xs) for (const lz of [60, D - 60])
-      fixtures.push({ kind: 'leg', shape: 'round', name: 'Cabinet leg', box: { min: [lx - 20, -elev, lz - 20], size: [40, elev, 40] } });
-    hardware.push({ item: `Adjustable cabinet legs, ${Math.round(elev)}mm (${(elev / 25.4).toFixed(1)}") + mounting plates`, qty: xs.length * 2 });
+    const leg = lookup(cat.legs, style.leg, 'leg');
+    const veneer = (f: string) => !!cat.finishes[f]?.texture;
+    const finish = leg.wood === 'match' ? (veneer(style.carcassFinish) ? style.carcassFinish : 'walnut') : leg.wood;
+    const inset = 30 + leg.topDia / 2; // plate inside the bottom, clear of the sides
+    const reach = Math.tan((leg.splay * Math.PI) / 180) * elev;
+    for (const lx of xs) for (const lz of [inset, D - inset]) {
+      const x = lx === 60 ? inset : lx === totalW - 60 ? totalW - inset : lx;
+      // splay outward from the run's centre (end legs on the diagonal, middle legs straight out)
+      const dx = x === inset ? -1 : x === totalW - inset ? 1 : 0, dz = lz === inset ? -1 : 1;
+      const len = Math.hypot(dx, dz) || 1;
+      const top: Vec3 = [x, 0, lz], foot: Vec3 = [x + (dx / len) * reach, -elev, lz + (dz / len) * reach];
+      const r = leg.topDia / 2;
+      fixtures.push({ kind: 'leg', shape: 'taper', name: leg.name, box: { min: [Math.min(top[0], foot[0]) - r, -elev, Math.min(top[2], foot[2]) - r],
+        size: [Math.abs(foot[0] - top[0]) + 2 * r, elev, Math.abs(foot[2] - top[2]) + 2 * r] },
+        leg: { top, foot, topDia: leg.topDia, bottomDia: leg.bottomDia, ferrule: leg.ferrule, finish } });
+    }
+    const woodName = finish ? `${(cat.finishes[finish]?.name ?? finish).split(' (')[0].replace(' veneer', '')}, ` : '';
+    hardware.push({ item: `${leg.name} (${woodName}${Math.round(elev)}mm / ${(elev / 25.4).toFixed(1)}" tall) + ${leg.plate}`, qty: xs.length * 2, buy: leg.buy });
   }
 
   // flush-face end panels: same finish as the fronts, down to the floor on floor-standing runs
@@ -137,6 +153,8 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
     { item: spec.mounting === 'wall-hung' ? 'Wall screws for hanging rail (into studs)' : 'Screws to secure cabinet to wall (into studs)', qty: spec.cabinets.length * (spec.mounting === 'wall-hung' ? 4 : 2) },
   );
   if (spec.cabinets.length > 1) hardware.push({ item: 'Cabinet connector bolts (joining boxes)', qty: (spec.cabinets.length - 1) * 4 });
+
+  hardware.push(...applyBanding(parts, style, cat));
 
   // grain matching: the whole face is one group; drawer bottoms group by level (same height = side by side)
   if (style.grainMatch !== 'off') for (const p of parts) {

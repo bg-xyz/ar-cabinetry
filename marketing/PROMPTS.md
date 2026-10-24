@@ -19,3 +19,5 @@ in <city, era, restored for 2026>: <walls, floor, 2-4 props>. <light>. Medium fo
 calm, quiet luxury. Do not change the <piece> design, <counts>. No text, no people."
 
 Full prompts are in the ElevenLabs history (Image & Video -> History, 2026-10-23).
+
+Prompt rule (Leah, 2026-10-23): no real brand or designer names in prompts or captions; describe objects generically. City settings set a mood only; captions never say a piece comes from there.

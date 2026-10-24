@@ -107,4 +107,4 @@ Vanity v0 starts with: **Classic Euro**, wall-hung, exposed ply. Inset and flute
 
 
 ## Display names (2026-10-23)
-The presets are shown under city names (see `DESIGN.md`): **Copenhagen** = classic-euro (full overlay), **Basel** = ply-inset, **Vienna** = recessed-inset, **Milano** = milan-flush. Preset ids are unchanged.
+Shown as **Slab** = classic-euro (full overlay), **Frame** = ply-inset, **Shadow** = recessed-inset, **Flush** = milan-flush: plain words, no trademark or false-origin issues (see `DESIGN.md`). Preset ids are unchanged.

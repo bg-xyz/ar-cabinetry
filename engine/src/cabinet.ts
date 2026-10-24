@@ -72,7 +72,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
       ops: [{ kind: 'pocket', from: [bx, H - t, bs], to: [bx + between, H - t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
   } else {
     add({ id: id('stretcher-F'), name: 'Front stretcher', role: 'stretcher', material: style.carcass,
-      box: { min: [bx, H - t, D - sw], size: [between, t, sw] }, faceA: '+y', grain: 0, exposed: false, ops: [] });
+      box: { min: [bx, H - t, D - sw], size: [between, t, sw] }, faceA: '+y', grain: 0, exposed: inset, ops: [] }); // inset: its edge shows above the fronts
     add({ id: id('stretcher-R'), name: 'Rear stretcher', role: 'stretcher', material: style.carcass,
       box: { min: [bx, H - t, 0], size: [between, t, sw] }, faceA: '-y', grain: 0, exposed: false,
       ops: [{ kind: 'pocket', from: [bx, H - t, bs], to: [bx + between, H - t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });

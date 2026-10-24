@@ -7,13 +7,16 @@ export function lookup<T>(table: Record<string, T>, id: string, what: string): T
 }
 
 // Style presets from STYLES.md. A preset is only a set of switch positions. Display names are cities
-// (DESIGN.md): Copenhagen = full overlay, Basel = ply-framed inset, Vienna = recessed inset, Milano = flush.
+// (DESIGN.md): plain descriptive words nobody owns: Slab = full overlay, Frame = ply-framed inset,
+// Shadow = recessed inset, Flush = flush, push to open.
 const base: Style = {
-  name: 'Copenhagen',
+  name: 'Slab',
   mount: 'overlay',
   insetSetback: 0,
   grip: 'pull',
   grainMatch: 'across',
+  edges: 'banded',
+  bandThickness: 0.5,
   gap: 3,
   endReveal: 1.5,
   topReveal: 3,
@@ -26,6 +29,7 @@ const base: Style = {
   hinge: 'blum-cliptop-110-overlay',
   runner: 'blum-tandem-563h',
   pull: 'bar-128',
+  leg: 'taper',
   dadoDepth: 6,
   grooveDepth: 6,
   dadoFit: 0.4,    // 0.016"
@@ -39,9 +43,9 @@ const base: Style = {
 
 export const STYLE_PRESETS: Record<string, Style> = {
   'classic-euro': base,
-  'ply-inset': { ...base, name: 'Basel', mount: 'inset', hinge: 'blum-cliptop-110-inset' },
-  'recessed-inset': { ...base, name: 'Vienna', mount: 'inset', insetSetback: 15, hinge: 'blum-cliptop-110-inset' },
-  'milan-flush': { ...base, name: 'Milano', grip: 'push', pull: 'none' },
+  'ply-inset': { ...base, name: 'Frame', mount: 'inset', hinge: 'blum-cliptop-110-inset', edges: 'ply' },
+  'recessed-inset': { ...base, name: 'Shadow', mount: 'inset', insetSetback: 15, hinge: 'blum-cliptop-110-inset' },
+  'milan-flush': { ...base, name: 'Flush', grip: 'push', pull: 'none' },
 };
 
 export function resolveStyle(input: (Partial<Style> & { preset?: string }) | undefined): Style {

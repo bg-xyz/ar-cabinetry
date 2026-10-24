@@ -122,3 +122,19 @@ test('joint fit is a shop setting: dados open up, panel ends stop short for glue
   assert.ok(Math.abs(bottom.box.size[0] - (600 - 2 * 18 + 2 * 6 - 2 * 0.8)) < 1e-6, 'bottom stops depthFit short each end');
   assert.deepEqual(collisions(d), []);
 });
+
+test('banded edges by default: fronts all round, tape totalled per finish; Frame keeps the ply edge', () => {
+  const spec: RunSpec = { name: 'band', mounting: 'legs', elevation: 150, style: { frontFinish: 'walnut' },
+    cabinets: [{ id: 'A', width: 600, height: 700, depth: 450, zones: [{ type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }] }],
+    top: { material: 'bb18', overhangSides: 0, overhangFront: 0 } };
+  const d = designRun(spec, cat);
+  const fronts = d.parts.filter((p) => p.role === 'drawerFront');
+  assert.ok(fronts.every((p) => p.band?.edges === 'all round'));
+  assert.equal(d.parts.find((p) => p.role === 'top')?.band?.edges, 'front + ends');
+  assert.ok(d.parts.filter((p) => !p.exposed).every((p) => !p.band));
+  const walnut = d.hardware.find((h) => /Edgebanding.*Walnut/i.test(h.item));
+  const want = fronts.reduce((a, p) => a + p.band!.length, 0) / 1000;
+  assert.ok(walnut && walnut.qty >= want && walnut.qty <= Math.ceil(want * 1.1) + 1, JSON.stringify(walnut));
+  const basel = designRun({ ...spec, style: { preset: 'ply-inset' } }, cat);
+  assert.ok(basel.parts.every((p) => !p.band) && !basel.hardware.some((h) => /Edgebanding/.test(h.item)));
+});

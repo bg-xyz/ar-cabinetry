@@ -15,13 +15,14 @@
     { "match": "Bar pull", "each": 10 },
     { "match": "TIP-ON", "each": 15 },
     { "match": "Shelf pins", "each": 0.3 },
-    { "match": "legs", "each": 12 },
+    { "match": "round leg", "each": 18 },
     { "match": "vessel sink", "each": 130 },
     { "match": "faucet", "each": 150 },
     { "match": "P-trap", "each": 45 },
     { "match": "Confirmat", "each": 0.15 },
     { "match": "connector bolts", "each": 0.9 },
     { "match": "screws", "each": 0.1 },
-    { "match": "U-drawer", "each": 2 }
+    { "match": "U-drawer", "each": 2 },
+    { "match": "Edgebanding", "each": 1.1 }
   ]
 }

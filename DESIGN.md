@@ -1,12 +1,12 @@
 # Plywise design language
 
 **2026-clean, with a nod to midcentury European high style.** Think a 1960s Danish or Italian furniture catalogue
-(Vitsoe, Braun, Cassina, a Finn Juhl showroom) set by a modern studio: generous paper, one confident serif, a
-geometric sans, hairline rules, real wood, and almost no chrome. Posh by restraint, never by decoration.
+set by a modern studio: generous paper, one confident serif, a geometric sans, hairline rules, real wood, and almost
+no chrome. Posh by restraint, never by decoration.
 
 ## Type
 - **Display:** Instrument Serif (Google Fonts). High-contrast Didone-ish; use the *italic* for one or two words per
-  headline ("Make *room*."). Large, tight leading (1.02), slight negative tracking. iOS: New York (`.serif` design).
+  headline ("Built for *your walls.*"). Large, tight leading (1.02), slight negative tracking. iOS: New York (`.serif` design).
 - **Text + UI:** Jost (Google Fonts), a Futura revival. 400 body, 500 UI. Labels in small caps: 12px, uppercase,
   0.16em tracking. iOS: SF with `.tracking(1.4)` and `.textCase(.uppercase)` for labels.
 - Numbers: catalogue style. "Nº 04", "60 in · 27 in · 19 in", tabular.
@@ -28,17 +28,21 @@ geometric sans, hairline rules, real wood, and almost no chrome. Posh by restrai
 - Radius 4-10px (catalogue cards, not bubbles). Buttons are squared-off with an arrow: "Spin the 3D model →".
 - Hairline 1px rules between sections; numbered sections ("01 · Scan").
 - Photography fills edge to edge; captions under images in small caps with a spec line, like a catalogue plate:
-  `Nº 02 · Dresser · 60 in · Walnut, recessed inset · Basel`.
+  `Nº 02 · Dresser · 60 in · Walnut, shadow inset`.
 - Motion: slow fades and 8px rises (400ms, ease-out). Nothing bounces.
 
-## Style names (the posh nod)
-The four presets get city names; the plain description stays next to them.
+## Names (no one else's marks)
+Leah's rule (2026-10-23): no names or taglines that lean on someone else's brand or imply an origin we don't have.
+Style names are plain descriptive words; the tagline is **"Built for your walls."** ("Make room." was retired: "Make Room for
+Life" and "Make Room for Living" are registered for closet furniture and furniture retail). Run a USPTO search before any
+new name ships, and keep real brand and designer names out of prompts and copy.
+
 | Preset | Name | What it is |
 |---|---|---|
-| classic-euro | **Copenhagen** | full-overlay slab fronts |
-| ply-inset | **Basel** | the plywood box frames each front |
-| recessed-inset | **Vienna** | fronts set back, a shadow line all round |
-| milan-flush | **Milano** | flush, push to open, no pulls |
+| classic-euro | **Slab** | full-overlay slab fronts |
+| ply-inset | **Frame** | the plywood box frames each front |
+| recessed-inset | **Shadow** | fronts set back, a shadow line all round |
+| milan-flush | **Flush** | flush, push to open, no pulls |
 
 ## Imagery
 Editorial interior photos generated from the engine's own renders (so the piece in the photo is the piece the

@@ -16,5 +16,6 @@ export function loadCatalog(dir = join(here, '..', 'catalog')): Catalog {
     sinks: read('sinks'),
     faucets: read('faucets'),
     finishes: read('finishes'),
+    legs: read('legs'),
   };
 }

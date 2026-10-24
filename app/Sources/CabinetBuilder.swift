@@ -63,7 +63,9 @@ struct MeshBuilder {
     }
 
     /// Surface of revolution around a vertical axis through `center` (mm). Profile = (radius, height).
-    mutating func lathe(_ profile: [(Double, Double)], center: SIMD3<Double>, segments: Int = 48) {
+    /// `uv` maps (height, arc length) to texture coordinates; without it the surface is untextured.
+    mutating func lathe(_ profile: [(Double, Double)], center: SIMD3<Double>, segments: Int = 48,
+                        uv: ((Double, Double) -> SIMD2<Float>)? = nil) {
         for i in 0..<(profile.count - 1) {
             let (r0, y0) = profile[i], (r1, y1) = profile[i + 1]
             let dr = r1 - r0, dy = y1 - y0
@@ -76,8 +78,9 @@ struct MeshBuilder {
                 }
                 // outward normal of the profile segment, swept around
                 let n = simd_normalize(SIMD3<Float>(Float(dy / len * cos(tm)), Float(-dr / len), Float(dy / len * sin(tm))))
+                let tex = uv.map { f in [f(y0, r0 * t0), f(y0, r0 * t1), f(y1, r1 * t1), f(y1, r1 * t0)] } ?? Array(repeating: .zero, count: 4)
                 quad([ring(r0, y0, t0), ring(r0, y0, t1), ring(r1, y1, t1), ring(r1, y1, t0)],
-                     normal: n, uv: Array(repeating: .zero, count: 4), material: 0)
+                     normal: n, uv: tex, material: 0)
             }
         }
     }
@@ -135,6 +138,14 @@ final class MaterialLibrary {
         return m
     }()
 
+    lazy var brass: RealityKit.Material = {
+        var m = PhysicallyBasedMaterial()
+        m.baseColor = .init(tint: UIColor(red: 0.79, green: 0.64, blue: 0.37, alpha: 1))
+        m.roughness = .init(floatLiteral: 0.32)
+        m.metallic = .init(floatLiteral: 1)
+        return m
+    }()
+
     lazy var blackMetal: RealityKit.Material = {
         var m = PhysicallyBasedMaterial()
         m.baseColor = .init(tint: UIColor(white: 0.11, alpha: 1))
@@ -183,16 +194,42 @@ enum CabinetBuilder {
             guard !mesh.isEmpty, let resource = try? mesh.resource() else { continue }
             let id = choice.finish(for: part)
             guard let finish = design.finishes[id] else { continue }
-            let model = ModelEntity(mesh: resource, materials: [lib.wood(finish, id: id, edge: false), lib.wood(finish, id: id, edge: true)])
+            // banded edges wear the face veneer; raw ones show the plies
+            let model = ModelEntity(mesh: resource, materials: [lib.wood(finish, id: id, edge: false), lib.wood(finish, id: id, edge: part.banded != true)])
             model.name = part.id
             body.addChild(model)
         }
 
         var ceramic = MeshBuilder(), metal = MeshBuilder()
-        for f in design.fixtures { addFixture(f, ceramic: &ceramic, metal: &metal) }
+        for f in design.fixtures {
+            if let spec = f.leg { body.addChild(leg(spec, design: design, lib: lib)); continue }
+            addFixture(f, ceramic: &ceramic, metal: &metal)
+        }
         if let r = try? ceramic.resource(), !ceramic.isEmpty { body.addChild(ModelEntity(mesh: r, materials: [lib.ceramic])) }
         if let r = try? metal.resource(), !metal.isEmpty { body.addChild(ModelEntity(mesh: r, materials: [lib.blackMetal])) }
         return root
+    }
+
+    /// A mid-century tapered leg: turned around its own axis (grain along the leg), tilted to its
+    /// splay, solid wood (the finish's veneer texture) or black metal, with a brass ferrule.
+    static func leg(_ l: Design.LegSpec, design: Design, lib: MaterialLibrary) -> Entity {
+        let top = SIMD3(l.top[0], l.top[1], l.top[2]), foot = SIMD3(l.foot[0], l.foot[1], l.foot[2])
+        let len = simd_length(top - foot)
+        let r0 = l.bottomDia / 2, r1 = l.topDia / 2
+        var wood = MeshBuilder(), tip = MeshBuilder()
+        let uv: (Double, Double) -> SIMD2<Float> = { h, s in SIMD2(Float(h / veneerTile), Float(s / veneerTile)) }
+        wood.lathe([(0, l.ferrule), (r0 + (r1 - r0) * l.ferrule / len, l.ferrule), (r1, len), (0, len)], center: .zero, uv: uv)
+        if l.ferrule > 0 {
+            let rf = r0 + (r1 - r0) * l.ferrule / len + 0.6
+            tip.lathe([(0, 0), (r0 + 0.6, 0), (rf, l.ferrule), (0, l.ferrule)], center: .zero)
+        }
+        let e = Entity()
+        let woodMaterial: RealityKit.Material = l.finish.flatMap { design.finishes[$0] }.map { lib.wood($0, id: l.finish!, edge: false) } ?? lib.blackMetal
+        if let r = try? wood.resource() { e.addChild(ModelEntity(mesh: r, materials: [woodMaterial])) }
+        if l.ferrule > 0, let r = try? tip.resource() { e.addChild(ModelEntity(mesh: r, materials: [lib.brass])) }
+        e.position = SIMD3<Float>(foot * 0.001)
+        e.orientation = simd_quatf(from: SIMD3<Float>(0, 1, 0), to: simd_normalize(SIMD3<Float>(top - foot)))
+        return e
     }
 
     /// The part's box minus its through-cuts (drawer notches, plumbing holes), as boxes.
@@ -222,16 +259,31 @@ enum CabinetBuilder {
         let grain: Int
         if let g = p.grainAxis, g != n { grain = g } else { grain = size[inPlane[0]] >= size[inPlane[1]] ? inPlane[0] : inPlane[1] }
         let across = inPlane.first { $0 != grain } ?? inPlane[1]
-        let plyTile = plyPairs * 2 * size[n] / Double(max(p.plies, 1))
+        let plyTile = p.banded == true ? veneerTile : plyPairs * 2 * size[n] / Double(max(p.plies, 1))
         var h: UInt32 = 0
         for c in (p.texSeed ?? p.id).unicodeScalars { h = h &* 31 &+ c.value }   // stable offset, shared by a grain-matched group
         let ou = Double(h % 997) / 997, ov = Double((h >> 10) % 991) / 991
         let minN = p.box.min[n]
         mesh.box(piece.0, piece.1, uv: { w, m in
+            if m == n, let s = p.sheet { return sheetUV(p, s, w) }
             if m == n { return SIMD2(Float(w[grain] / veneerTile + ou), Float(w[across] / veneerTile + ov)) }
             let along = 3 - m - n
             return SIMD2(Float(w[along] / veneerTile + ou), Float((w[n] - minN) / plyTile + ov))
         }, material: { m in m == n ? 0 : 1 })
+    }
+
+    /// True-to-life grain: the veneer at a point of a face is the veneer at that point of the sheet
+    /// the part was cut from. Grain runs along the sheet's length; face B is the sheet's other side.
+    static func sheetUV(_ p: Design.Part, _ s: Design.SheetSpot, _ w: SIMD3<Double>) -> SIMD2<Float> {
+        let lo = p.box.min, size = p.box.size, n = p.thicknessAxis
+        let u = s.uSign > 0 ? w[s.u] - lo[s.u] : lo[s.u] + size[s.u] - w[s.u]
+        let v = w[s.v] - lo[s.v]
+        let x = s.rot ? s.x + (s.w - v) : s.x + u, y = s.rot ? s.y + u : s.y + v
+        let faceA = abs(w[n] - (s.faceA > 0 ? lo[n] + size[n] : lo[n])) < 0.5
+        let i = Double(s.i)
+        let ox = (i * 0.618).truncatingRemainder(dividingBy: 1) + (faceA ? 0 : 0.43)
+        let oy = (i * 0.381).truncatingRemainder(dividingBy: 1) + (faceA ? 0 : 0.29)
+        return SIMD2(Float(x / veneerTile + ox), Float(y / veneerTile + oy))
     }
 
     static func addFixture(_ f: Design.Fixture, ceramic: inout MeshBuilder, metal: inout MeshBuilder) {

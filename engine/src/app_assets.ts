@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { loadCatalog } from './load.ts';
 import { designRun } from './run.ts';
 import { model3d, TEXTURE_DIR, TEXTURE_MAPS } from './job.ts';
+import { cutSheets } from './sheets.ts';
 import type { RunSpec } from './types.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -23,13 +24,16 @@ mkdirSync(join(out, 'Designs'), { recursive: true });
 
 APP_SPECS.forEach((name, i) => {
   const spec = JSON.parse(readFileSync(join(here, '..', 'specs', `${name}.json`), 'utf8')) as RunSpec;
-  const model = { ...model3d(designRun(spec, cat), cat), finishes: cat.finishes, order: i };
+  const d = designRun(spec, cat);
+  const model = { ...model3d(d, cat, cutSheets(d, cat, 6.35).sheets), finishes: cat.finishes, order: i };
   writeFileSync(join(out, 'Designs', `${basename(name)}.json`), JSON.stringify(model));
   console.log(`Designs/${name}.json`);
 });
 
 for (const key of readdirSync(TEXTURE_DIR).filter((k) => !k.includes('.'))) {
   mkdirSync(join(out, 'Textures', key), { recursive: true });
-  for (const m of TEXTURE_MAPS) copyFileSync(join(TEXTURE_DIR, key, `${m}.jpg`), join(out, 'Textures', key, `${m}.jpg`));
+  // the phone gets the 2K maps (close-up AR); the web previews embed the 1K ones
+  const src = existsSync(join(TEXTURE_DIR, key, '2k')) ? join(TEXTURE_DIR, key, '2k') : join(TEXTURE_DIR, key);
+  for (const m of TEXTURE_MAPS) copyFileSync(join(src, `${m}.jpg`), join(out, 'Textures', key, `${m}.jpg`));
   console.log(`Textures/${key}/`);
 }

@@ -12,6 +12,7 @@ import pulls from '../catalog/pulls.json' with { type: 'json' };
 import sinks from '../catalog/sinks.json' with { type: 'json' };
 import faucets from '../catalog/faucets.json' with { type: 'json' };
 import finishes from '../catalog/finishes.json' with { type: 'json' };
+import legs from '../catalog/legs.json' with { type: 'json' };
 import { designRun } from './run.ts';
 import { model3d } from './model3d.ts';
 import { plan } from './planner.ts';
@@ -19,17 +20,19 @@ import { cutSheets } from './sheets.ts';
 import type { Catalog, RunSpec } from './types.ts';
 import type { PlanInput } from './planner.ts';
 
-const cat = { materials, hinges, runners, pulls, sinks, faucets, finishes } as unknown as Catalog;
+const cat = { materials, hinges, runners, pulls, sinks, faucets, finishes, legs } as unknown as Catalog;
 
+// The model's veneer comes from where each part is cut on the sheet (true-to-life grain).
 function model(spec: RunSpec) {
   const d = designRun(spec, cat);
-  return { ...model3d(d, cat), finishes: cat.finishes, warnings: d.warnings };
+  const sheets = cutSheets(d, cat, 6.35, [], true).sheets;
+  return { ...model3d(d, cat, sheets), finishes: cat.finishes, warnings: d.warnings, sheetArea: sheetArea(sheets) };
 }
 
 // Sheets to buy, as plywood area in 4x8 sheet equivalents, for this design and with grain matching off.
-const area = (spec: RunSpec) => cutSheets(designRun(spec, cat), cat, 6.35, [], true).sheets.reduce((a, s) => a + s.size[0] * s.size[1], 0) / (2440 * 1220);
-function sheetNote(spec: RunSpec): { sheets: number; sheetsUnmatched: number; note: string } {
-  const sheets = area(spec);
+const sheetArea = (sheets: { size: [number, number] }[]) => sheets.reduce((a, s) => a + s.size[0] * s.size[1], 0) / (2440 * 1220);
+const area = (spec: RunSpec) => sheetArea(cutSheets(designRun(spec, cat), cat, 6.35, [], true).sheets);
+function sheetNote(spec: RunSpec, sheets: number): { sheets: number; sheetsUnmatched: number; note: string } {
   const off = spec.style?.grainMatch === 'off' ? sheets : area({ ...spec, style: { ...spec.style, grainMatch: 'off' } });
   const f = (n: number) => n.toFixed(1);
   const note = spec.style?.grainMatch === 'off' ? `Grain matching off: about ${f(sheets)} sheets of plywood.`
@@ -47,11 +50,12 @@ export const Plywise = {
   design: (json: string) => guard(() => model(JSON.parse(json) as RunSpec)),
   plan: (json: string) => guard(() => {
     const p = plan(JSON.parse(json) as PlanInput);
-    const s = sheetNote(p.spec);
+    const m = model(p.spec);
+    const s = sheetNote(p.spec, m.sheetArea);
     return {
       plan: { project: p.project, x0: p.x0, width: p.width, sinks: p.sinks, span: p.span, spans: p.spans, widthOptions: p.widthOptions,
         notes: [...p.notes, s.note], name: p.spec.name, grainMatch: p.spec.style?.grainMatch ?? 'across', sheets: s.sheets, sheetsUnmatched: s.sheetsUnmatched },
-      model: model(p.spec),
+      model: m,
     };
   }),
 };

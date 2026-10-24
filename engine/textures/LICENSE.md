@@ -9,4 +9,4 @@ All wood textures are from **ambientCG** (https://ambientcg.com) and are **CC0 1
 | `white-oak/` | Wood049 | white oak veneer (colour map lightened + desaturated toward rift white oak) |
 | `walnut/` | Wood051 | walnut veneer |
 
-Each folder: `color.jpg` (1024, sRGB), `normal.jpg` (1024, OpenGL convention), `roughness.jpg` (512). Downscaled from the 2K sets on 2026-10-23. Grain runs horizontally (texture u axis).
+Each folder: `color.jpg` (1024, sRGB), `normal.jpg` (1024, OpenGL convention), `roughness.jpg` (512), downscaled from the 2K sets on 2026-10-23, for the web previews. `2k/` holds the full 2048 maps (colour matched to the 1K look) that the iPhone app bundles. Grain runs horizontally (texture u axis).

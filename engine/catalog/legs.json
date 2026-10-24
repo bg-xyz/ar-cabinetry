@@ -1,0 +1,33 @@
+{
+  "taper": {
+    "name": "Mid-century tapered round leg, solid hardwood, brass ferrule",
+    "wood": "match",
+    "topDia": 44,
+    "bottomDia": 24,
+    "splay": 8,
+    "ferrule": 28,
+    "plate": "8° angled top plate",
+    "buy": null,
+    "verify": "Typical turned-leg sizes; check the supplier's top diameter and plate footprint (it must sit inside the cabinet bottom)."
+  },
+  "taper-straight": {
+    "name": "Tapered round leg, solid hardwood, straight",
+    "wood": "match",
+    "topDia": 44,
+    "bottomDia": 26,
+    "splay": 0,
+    "ferrule": 0,
+    "plate": "straight top plate",
+    "buy": null
+  },
+  "peg-black": {
+    "name": "Round steel leg, matte black",
+    "wood": null,
+    "topDia": 40,
+    "bottomDia": 34,
+    "splay": 0,
+    "ferrule": 0,
+    "plate": "straight top plate",
+    "buy": null
+  }
+}

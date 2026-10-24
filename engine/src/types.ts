@@ -38,6 +38,7 @@ export interface Part {
   exposed: boolean;     // visible when the piece is installed (grain + edge quality matter)
   ops: WorldOp[];
   match?: string;       // grain-match group: parts cut side by side from one panel, in sequence
+  band?: { edges: string; length: number }; // edgebanding on this part's visible edges (mm of tape)
 }
 
 // ---- flattened (CNC) form -------------------------------------------------
@@ -141,6 +142,18 @@ export interface Finish {
   normalScale?: number;   // strength of the surface texture (veneer faces)
 }
 
+export interface Leg {
+  name: string;
+  wood: 'match' | string | null; // 'match' = the cabinet's finish; a finish id; null = metal
+  topDia: number;
+  bottomDia: number;
+  splay: number;          // degrees outward (mid-century legs splay on an angled plate)
+  ferrule: number;        // brass tip length, 0 = none
+  plate: string;
+  buy?: string | null;
+  verify?: string;
+}
+
 export interface Catalog {
   materials: Record<string, Material>;
   hinges: Record<string, Hinge>;
@@ -149,6 +162,7 @@ export interface Catalog {
   sinks: Record<string, Sink>;
   faucets: Record<string, Faucet>;
   finishes: Record<string, Finish>;
+  legs: Record<string, Leg>;
 }
 
 // ---- design input ----------------------------------------------------------
@@ -161,6 +175,9 @@ export type Grip = 'pull' | 'groove' | 'push';
 // Matched designs also cut each level of drawer bottoms in sequence, so the grain runs across
 // the drawers when you open them side by side.
 export type GrainMatch = 'across' | 'waterfall' | 'off';
+// banded: visible edges get veneer edgebanding in the part's finish (clean, showroom).
+// ply: the Baltic birch layers show (the no-bander look; the Frame style's whole point).
+export type Edges = 'banded' | 'ply';
 
 export interface Style {
   name: string;
@@ -168,6 +185,8 @@ export interface Style {
   insetSetback: number;   // inset only: how far fronts sit back from the carcass edge
   grip: Grip;
   grainMatch: GrainMatch;
+  edges: Edges;
+  bandThickness: number;  // mm; 0.5 = pre-glued wood veneer tape (iron-on or edge bander), no size deduction
   gap: number;            // between fronts
   endReveal: number;      // overlay: front edge to carcass outside edge
   topReveal: number;
@@ -180,6 +199,7 @@ export interface Style {
   hinge: string;          // catalog ids
   runner: string;
   pull: string;
+  leg: string;            // legs.json id (legs mounting)
   dadoDepth: number;
   grooveDepth: number;
   // Joint fit (shop settings): it's wood, glue swells it and sheets vary, so joints are cut a
@@ -232,9 +252,11 @@ export interface RunSpec {
 // Bought items shown in the 3D/AR model but never cut (sinks, faucets, pulls).
 export interface Fixture {
   kind: 'sink' | 'faucet' | 'pull' | 'leg';
-  shape: 'box' | 'round';
+  shape: 'box' | 'round' | 'taper';
   name: string;
   box: Box3;
+  // legs: a tapered round leg from the mounting point (top) to the floor (foot); wood finish id or metal
+  leg?: { top: Vec3; foot: Vec3; topDia: number; bottomDia: number; ferrule: number; finish: string | null };
 }
 
 export interface HardwareLine {

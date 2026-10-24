@@ -98,7 +98,7 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
   const written: string[] = [];
   const put = (name: string, body: string) => { writeFileSync(join(dir, name), body); written.push(name); };
 
-  const parts3d = model3d(design, cat);
+  const parts3d = model3d(design, cat, job.sheets);
   const textureKeys = Object.keys(parts3d.textures);
   put('parts.json', JSON.stringify(parts3d, null, 1));
   put('quote.json', JSON.stringify(job.quote, null, 1));
@@ -125,10 +125,11 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
   const ft = fitTest(design, cat);
   put('fit-test.dxf', sheetDxf(ft.sheet, o.units, ft.labels).dxf);
 
+  const band = new Map(design.parts.filter((p) => p.band).map((p) => [p.id, p.band!.edges]));
   const rows = job.flat.map((p) => [p.id, p.name, lookup(cat.materials, p.material, 'material').name, p.thickness.toFixed(1),
     p.length.toFixed(1), p.width.toFixed(1), (p.length / 25.4).toFixed(3), (p.width / 25.4).toFixed(3),
-    p.grainLocked ? 'yes' : 'no', sheetOf.get(p.id) ?? '']);
-  put('cutlist.csv', [['id', 'name', 'material', 'thickness_mm', 'length_mm', 'width_mm', 'length_in', 'width_in', 'grain_matters', 'sheet'], ...rows]
+    p.grainLocked ? 'yes' : 'no', band.get(p.id) ?? '', sheetOf.get(p.id) ?? '']);
+  put('cutlist.csv', [['id', 'name', 'material', 'thickness_mm', 'length_mm', 'width_mm', 'length_in', 'width_in', 'grain_matters', 'band', 'sheet'], ...rows]
     .map((r) => r.map((c) => (/[",]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n') + '\n');
 
   put('jobsheet.html', jobSheet(design, job, cat, o, rows));
@@ -179,6 +180,7 @@ function jobSheet(design: Design, job: Job, cat: Catalog, o: JobOptions, rows: s
     const mm = cat.materials[m];
     if (mm.verify) verify.add(`<b>${esc(mm.name)}</b> (${mm.thickness}mm): ${esc(mm.verify)}`);
   }
+  if (st.edges === 'banded') verify.add(`<b>Edgebanding</b>: band the edges in the cut list's Band column after cutting and before assembly: ${st.bandThickness}mm pre-glued veneer (iron-on or an edge bander), trimmed flush, arris eased with 220 grit. Sizes are finished sizes; ${st.bandThickness}mm needs no deduction.`);
   verify.add(`<b>Joint fit</b>: cut <code>fit-test.dxf</code> first, on an offcut. Slide a piece of each sheet into its strip: the slot it takes with light hand pressure is your fit (now dados +${st.dadoFit}mm, grooves +${st.grooveFit}mm, panel ends ${st.depthFit}mm short of the dado bottom for glue). Plywood varies sheet to sheet; glue swells the joint, so err loose.`);
   const layerHelp: Record<string, string> = {
     SHEET: 'sheet outline, reference only', LABELS: 'part ids, reference only',
@@ -219,7 +221,7 @@ ${job.quote.hardware.map((h, i) => `<tr><td>${h.qty}</td><td>${esc(h.item)}</td>
 <h2>CNC layers</h2><p>Each layer is one toolpath. Suggested order for manual tool changes: all <code>DRILL_*</code> (drill bits), then all <code>POCKET_*</code> (one end mill), then <code>CUT_INSIDE</code>, then <code>CUT_OUTSIDE</code> last.</p>
 <table><tr><th>Layer</th><th>Toolpath</th></tr>${job.layers.map((l) => `<tr><td><code>${l}</code></td><td>${describe(l)}</td></tr>`).join('')}</table>
 <h2>Sheets</h2><div class="sheets">${job.sheets.map((sh, i) => `<figure>${sheetSvg(sh)}<figcaption>Sheet ${i + 1}: ${esc(lookup(cat.materials, sh.material, 'material').name)} (${sh.size[0]} &times; ${sh.size[1]}), ${sh.placements.length} parts</figcaption></figure>`).join('')}</div>
-<h2>Cut list</h2><table><tr><th>Id</th><th>Part</th><th>Material</th><th>T mm</th><th>L mm</th><th>W mm</th><th>L in</th><th>W in</th><th>Grain matters</th><th>Sheet</th></tr>
+<h2>Cut list</h2><table><tr><th>Id</th><th>Part</th><th>Material</th><th>T mm</th><th>L mm</th><th>W mm</th><th>L in</th><th>W in</th><th>Grain matters</th><th>Band</th><th>Sheet</th></tr>
 ${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table>
 </body></html>`;
 }

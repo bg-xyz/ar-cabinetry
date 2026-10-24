@@ -41,6 +41,8 @@ struct Design: Decodable, Identifiable {
         let finish: String
         let grainAxis: Int?
         let texSeed: String?
+        let banded: Bool?
+        let sheet: SheetSpot?
         let thicknessAxis: Int
         let plies: Int
         let cuts: [Cut]
@@ -49,11 +51,35 @@ struct Design: Decodable, Identifiable {
         var slot: FinishSlot { role == "back" && exposed == true ? .cabinet : FinishSlot(role: role) }
     }
 
+    /// Where the part was cut on its sheet (engine/src/model3d.ts), for true-to-life grain.
+    struct SheetSpot: Decodable {
+        let i: Int
+        let x: Double
+        let y: Double
+        let rot: Bool
+        let w: Double
+        let u: Int
+        let v: Int
+        let uSign: Double
+        let faceA: Int
+    }
+
     struct Fixture: Decodable {
         let kind: String
         let shape: String
         let name: String
         let box: Box
+        let leg: LegSpec?
+    }
+
+    /// A tapered round leg from its mounting point (top) to the floor (foot), mm, run frame.
+    struct LegSpec: Decodable {
+        let top: [Double]
+        let foot: [Double]
+        let topDia: Double
+        let bottomDia: Double
+        let ferrule: Double
+        let finish: String?
     }
 
     struct Finish: Decodable {

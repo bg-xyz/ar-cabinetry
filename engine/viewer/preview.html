@@ -139,6 +139,18 @@ function partPieces(p) {
   for (const c of p.cuts ?? []) boxes = subtract(boxes, c);
   return boxes;
 }
+// True-to-life grain: the veneer at a point of a face is the veneer at that point of the sheet the
+// part was cut from (engine/src/model3d.ts). Grain runs along the sheet's length (x). Face B (the
+// underside on the CNC) is the sheet's other side, which has its own figure.
+function sheetUV(p, w) {
+  const s = p.sheet, min = p.box.min, size = p.box.size, n = p.thicknessAxis;
+  const U = s.uSign > 0 ? w[s.u] - min[s.u] : min[s.u] + size[s.u] - w[s.u];
+  const V = w[s.v] - min[s.v];
+  const X = s.rot ? s.x + (s.w - V) : s.x + U, Y = s.rot ? s.y + U : s.y + V;
+  const faceA = Math.abs(w[n] - (s.faceA > 0 ? min[n] + size[n] : min[n])) < 0.5;
+  const ox = (s.i * 0.618) % 1 + (faceA ? 0 : 0.43), oy = (s.i * 0.381) % 1 + (faceA ? 0 : 0.29);
+  return [X / VENEER_TILE + ox, Y / VENEER_TILE + oy];
+}
 function partGeometry(p, piece) {
   const size = [0, 1, 2].map((a) => piece.max[a] - piece.min[a]);
   const [sx, sy, sz] = size;
@@ -148,14 +160,16 @@ function partGeometry(p, piece) {
   const grain = p.grainAxis !== null && p.grainAxis !== n ? p.grainAxis
     : (p.box.size[inPlane[0]] >= p.box.size[inPlane[1]] ? inPlane[0] : inPlane[1]);
   const across = inPlane.find((a) => a !== grain);
-  const plyTile = PLY_PAIRS * 2 * p.box.size[n] / p.plies;
+  // banded edges wear the face veneer (grain along the edge); raw ones show the plies
+  const plyTile = p.banded ? VENEER_TILE : PLY_PAIRS * 2 * p.box.size[n] / p.plies;
   let h = 0; for (const c of p.texSeed ?? p.id) h = (h * 31 + c.charCodeAt(0)) >>> 0;   // stable offset, shared by a grain-matched group
   const ou = (h % 997) / 997, ovv = ((h >> 10) % 991) / 991;
   for (let f = 0; f < 6; f++) {
     const m = f >> 1;
     for (let i = f * 4; i < f * 4 + 4; i++) {
       const w = [pos.getX(i) + sx / 2 + piece.min[0], pos.getY(i) + sy / 2 + piece.min[1], pos.getZ(i) + sz / 2 + piece.min[2]]; // world mm
-      if (m === n) uv.setXY(i, w[grain] / VENEER_TILE + ou, w[across] / VENEER_TILE + ovv);
+      if (m === n && p.sheet) uv.setXY(i, ...sheetUV(p, w));
+      else if (m === n) uv.setXY(i, w[grain] / VENEER_TILE + ou, w[across] / VENEER_TILE + ovv);
       else {
         const along = [0, 1, 2].find((a) => a !== m && a !== n);
         uv.setXY(i, w[along] / VENEER_TILE + ou, (w[n] - p.box.min[n]) / plyTile + ovv);
@@ -203,7 +217,7 @@ for (const p of DATA.parts) {
 function applyFinishes() {
   for (const node of meshes) {
     const p = node.userData, fid = finishOf(p);
-    const mats = [0, 1, 2, 3, 4, 5].map((f) => finishMat(fid, (f >> 1) === p.thicknessAxis ? 'face' : 'edge'));
+    const mats = [0, 1, 2, 3, 4, 5].map((f) => finishMat(fid, (f >> 1) === p.thicknessAxis || p.banded ? 'face' : 'edge'));
     for (const m of node.children) m.material = mats;
   }
 }
@@ -211,6 +225,7 @@ function applyFinishes() {
 // ---- bought items: vessel sink, faucet, pulls
 const ceramic = new THREE.MeshPhysicalMaterial({ color: 0xf6f5f1, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05 });
 const blackMetal = new THREE.MeshPhysicalMaterial({ color: 0x1c1c1c, roughness: 0.38, metalness: 0.65 });
+const brass = new THREE.MeshPhysicalMaterial({ color: 0xc9a25e, roughness: 0.32, metalness: 1 });
 const fixtures = [];
 for (const f of DATA.fixtures ?? []) {
   const [sx, sy, sz] = f.box.size, [mx, my, mz] = f.box.min;
@@ -255,6 +270,23 @@ for (const f of DATA.fixtures ?? []) {
     lever.rotation.z = Math.PI / 2; lever.position.set(30, sy / 2 - 70, 0);
     obj.add(post, spout, lever);
     obj.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);
+  } else if (f.kind === 'leg' && f.leg) {
+    // tapered round leg from the mounting plate to the floor, splayed; grain runs along the leg
+    const L = f.leg, top = new THREE.Vector3(...L.top), foot = new THREE.Vector3(...L.foot);
+    const axis = top.clone().sub(foot), len = axis.length();
+    const geo = new THREE.CylinderGeometry(L.topDia / 2, L.bottomDia / 2, len, 40, 1);
+    const uvs = geo.attributes.uv;
+    for (let i = 0; i < uvs.count; i++) uvs.setXY(i, uvs.getY(i) * len / VENEER_TILE, uvs.getX(i) * Math.PI * L.topDia / VENEER_TILE);
+    obj = new THREE.Group();
+    obj.add(new THREE.Mesh(geo, L.finish ? finishMat(L.finish, 'face') : blackMetal));
+    if (L.ferrule) {
+      const r = L.bottomDia / 2 + (L.topDia - L.bottomDia) / 2 * (L.ferrule / len);
+      const tip = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.6, L.bottomDia / 2 + 0.6, L.ferrule, 40), brass);
+      tip.position.y = -len / 2 + L.ferrule / 2;
+      obj.add(tip);
+    }
+    obj.position.copy(top.clone().add(foot).multiplyScalar(0.5));
+    obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis.normalize());
   } else if (f.kind === 'leg') {
     obj = new THREE.Mesh(new THREE.CylinderGeometry(sx / 2 - 3, sx / 2, sy, 32), blackMetal);
     obj.position.set(mx + sx / 2, my + sy / 2, mz + sz / 2);

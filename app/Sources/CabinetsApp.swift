@@ -73,7 +73,7 @@ struct ContentView: View {
                     Text("Plywise").font(Theme.serif(40))
                     Circle().fill(Theme.brass).frame(width: 7, height: 7)
                     Spacer()
-                    Text("Make room.").font(Theme.serif(20, italic: true)).foregroundStyle(.secondary)
+                    Text("Built for your walls.").font(Theme.serif(16, italic: true)).foregroundStyle(.secondary)
                 }
                 Divider().overlay(Theme.rule)
                 Caps("What are you building?")
