@@ -227,8 +227,11 @@ struct ContentView: View {
     /// Share: a captioned photo, or the raw frame plus a prompt for any image AI (no AI in the app).
     private var shareMenu: some View {
         Menu {
-            Button { ar.snapshot { image in if let image { shareItem = ShareItem(items: [image, URL(string: "https://plywise.xyz")!]) } } } label: {
+            Button { ar.snapshot { image in if let image { shareItem = ShareItem(items: [image, ar.shareLink ?? URL(string: "https://plywise.xyz")!]) } } } label: {
                 Label("Share a photo", systemImage: "photo")
+            }
+            if let link = ar.shareLink {
+                Button { shareItem = ShareItem(items: [link]) } label: { Label("Share the design (3D link)", systemImage: "link") }
             }
             Button {
                 ar.photoKit { image, prompt in

@@ -258,6 +258,9 @@ final class ARController: ObservableObject {
         arView.snapshot(saveToHDR: false) { image in done(image.map { Self.caption($0, title: title, line: line) }) }
     }
 
+    /// This design as a link anyone can open: 3D in the browser, the finishes picked here, AR on iPhone.
+    var shareLink: URL? { plan?.shareLink(fronts: choice?.fronts, cabinet: choice?.cabinet, top: choice?.top) }
+
     /// The raw AR frame (no caption) and a prompt to paste into any image AI with it.
     func photoKit(_ done: @escaping (UIImage?, String) -> Void) {
         let prompt = photoPrompt

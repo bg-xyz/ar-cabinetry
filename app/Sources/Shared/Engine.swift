@@ -33,6 +33,22 @@ struct PlanResult: Decodable {
     let grainMatch: String       // across, waterfall, off
     let sheets: Double           // plywood, in 4x8 sheet equivalents
     let sheetsUnmatched: Double  // the same design with grain matching off
+    let specJSON: String?        // the design (RunSpec JSON), for share links
+
+    /// plywise.xyz/d/#<base64url design>: opens this design in any browser (3D, finishes, AR Quick Look).
+    func shareLink(fronts: String?, cabinet: String?, top: String?) -> URL? {
+        guard let data = specJSON?.data(using: .utf8),
+              var spec = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        var style = spec["style"] as? [String: Any] ?? [:]
+        if let fronts { style["frontFinish"] = fronts }
+        if let cabinet { style["carcassFinish"] = cabinet }
+        if let top { style["topFinish"] = top }
+        spec["style"] = style
+        guard let json = try? JSONSerialization.data(withJSONObject: spec, options: [.sortedKeys]) else { return nil }
+        let b64 = json.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "="))
+        return URL(string: "https://plywise.xyz/d/#\(b64)")
+    }
 }
 
 enum EngineError: LocalizedError {

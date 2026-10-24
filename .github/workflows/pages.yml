@@ -1,5 +1,6 @@
 # Publishes plywise.xyz (GitHub Pages) from site/, plus live engine demos:
-# every spec in engine/specs/ is rebuilt here, so the site always shows the current engine.
+# every spec in engine/specs/ is rebuilt here, so the site always shows the current engine, and the share
+# page plywise.xyz/d/#<design> (engine/src/share_page.ts) designs from the link in the browser.
 name: Site
 
 on:
@@ -27,7 +28,7 @@ jobs:
           node-version: 24
       - name: Build the demo jobs with the engine
         run: |
-          cd engine && node src/samples.ts && cd ..
+          cd engine && node src/samples.ts && node src/share_page.ts && cd ..
           mkdir -p site/demo
           for d in jobs/*/; do
             n=$(basename "$d")

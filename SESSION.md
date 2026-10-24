@@ -235,3 +235,8 @@ screen for a native AR feel; support Vision Pro now (Blake has one to test); fin
   Connect first.
 - `GROWTH.md`: the virality and ease-of-use plan (next: website AR Quick Look, share links, assembly film,
   no-LiDAR mode, saved designs, get-it-made, kitchen islands, closets).
+
+**Later the same night:** Vision Pro target **BUILD SUCCEEDED** in CI (only fix needed: the selection haptic is
+visionOS 26+). iPhone builds 16 and 17 uploaded. Website: "View in your room" (USDZ made in the browser, AR Quick
+Look on iPhone/iPad Safari, ~4 MB; untested on a phone) and **share links** `plywise.xyz/d/#<design>` built by
+`engine/src/share_page.ts` in the Pages workflow; the app's Share menu sends the link (with the photo, or alone).

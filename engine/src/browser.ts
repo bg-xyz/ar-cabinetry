@@ -73,7 +73,9 @@ export const Plywise = {
     const priceNote = `About ${dollars(m.cost.materials + m.cost.hardware)} in plywood and hardware (${dollars(m.cost.materials)} + ${dollars(m.cost.hardware)}); the shop's cutting and finishing are extra.`;
     return {
       plan: { project: p.project, x0: p.x0, width: p.width, sinks: p.sinks, span: p.span, spans: p.spans, widthOptions: p.widthOptions,
-        notes: [p.notes[0], priceNote, ...p.notes.slice(1), s.note], name: p.spec.name, grainMatch: p.spec.style?.grainMatch ?? 'across', sheets: s.sheets, sheetsUnmatched: s.sheetsUnmatched },
+        notes: [p.notes[0], priceNote, ...p.notes.slice(1), s.note], name: p.spec.name,
+        // the design itself, for share links (plywise.xyz/d/#...): numbers to 0.1mm keeps links short
+        specJSON: JSON.stringify(p.spec, (_k, v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v)), grainMatch: p.spec.style?.grainMatch ?? 'across', sheets: s.sheets, sheetsUnmatched: s.sheetsUnmatched },
       model: m,
     };
   }),
