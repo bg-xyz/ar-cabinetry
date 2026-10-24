@@ -9,7 +9,8 @@
   "mounting": "toe-kick",
   "elevation": 0,
   "kickHeight": 101.6,
-  "endPanels": "both",
+  "endPanels": "none",
+  "walls": { "left": 31, "right": 31, "ceiling": 2438.4 },
   "cabinets": [
     {
       "id": "A",

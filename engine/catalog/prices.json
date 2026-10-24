@@ -9,6 +9,11 @@
     "ply14": { "sheet": 40 }
   },
   "hardware": [
+    { "match": "silicone", "each": 8 },
+    { "match": "Anti-tip", "each": 12 },
+    { "match": "shims", "each": 7 },
+    { "match": "floor cleats", "each": 2 },
+    { "match": "washer-head cabinet screws", "each": 0.35 },
     { "match": "CLIP top", "each": 9 },
     { "match": "mounting plate", "each": 2.5 },
     { "match": "TANDEM", "each": 62 },
@@ -20,7 +25,7 @@
     { "match": "faucet", "each": 150 },
     { "match": "P-trap", "each": 45 },
     { "match": "Confirmat", "each": 0.15 },
-    { "match": "connector bolts", "each": 0.9 },
+    { "match": "connector screws", "each": 0.9 },
     { "match": "screws", "each": 0.1 },
     { "match": "U-drawer", "each": 2 },
     { "match": "Edgebanding", "each": 1.1 }

@@ -31,8 +31,17 @@ export function flatFrame(part: Part): { n: Axis; sign: 1 | -1; u: Axis; v: Axis
   return { n, sign, u, v, uSign: cross(f, up)[u] };
 }
 
+/** The part as cut: scribed parts are oversize on the edges that get trimmed to the wall. */
+export function scribeBox(part: Part): Part['box'] {
+  const sc = part.scribe;
+  if (!sc) return part.box;
+  const min = [...part.box.min] as Vec3, size = [...part.box.size] as Vec3;
+  min[sc.axis] -= sc.lo; size[sc.axis] += sc.lo + sc.hi;
+  return { min, size };
+}
+
 export function flatten(part: Part, cat: Catalog, overcut: number): FlatPart {
-  const { min, size } = part.box;
+  const { min, size } = scribeBox(part);
   const { n, sign, u, v, uSign } = flatFrame(part);
   const plane = sign > 0 ? min[n] + size[n] : min[n];
   const U = (p: Vec3) => (uSign > 0 ? p[u] - min[u] : min[u] + size[u] - p[u]);

@@ -88,7 +88,10 @@ test('a console goes under a window with a high sill, not one with a low sill', 
 
 test('a bookcase fills the wall and stays under the ceiling, with room to tip it up', () => {
   const p = plan({ project: 'bookcase', wallLength: 130 * IN, wallHeight: 96 * IN });
-  assert.ok(Math.abs(p.width - 129 * IN) < 25, `width ${p.width / IN}`);
+  // wall to wall: the end panels at the walls give way to scribe fillers
+  const fill = p.width + (p.spec.walls?.left ?? 0) + (p.spec.walls?.right ?? 0);
+  assert.ok(Math.abs(fill - 130 * IN) < 1, `fills ${fill / IN}"`);
+  assert.equal(p.spec.endPanels, 'none');
   assert.ok(p.spec.cabinets.every((c) => c.width <= 36 * IN + 0.01));
   const d = designRun(p.spec, cat);
   const top = d.overall.height + d.overall.elevation;
@@ -150,4 +153,71 @@ for (const wall of [120, 132, 150, 180, 240]) {
 test('an island ignores doors in the counter wall (it stands out in the room)', () => {
   const p = plan({ project: 'island', wallLength: 160 * IN, obstacles: [{ kind: 'door', x0: 60 * IN, x1: 92 * IN }] });
   assert.equal(Math.round(p.width / IN), 84);
+});
+
+// ---- fitting the room: scribe fillers, ceiling strip, screws only where they're hidden ----------
+
+const cutSize = (p: ReturnType<typeof plan>, id: string) => {
+  const j = buildJob(designRun(p.spec, cat), cat, { units: 'mm', toolDia: 6.35 });
+  return j.flat.find((f) => f.id === id)!;
+};
+
+test('a vanity in an alcove gets scribe fillers both sides, and the top runs to the walls cut long', () => {
+  const p = planVanity({ wallLength: 50 * IN });
+  assert.equal(Math.round(p.width / IN), 48);
+  assert.ok(Math.abs(p.spec.walls!.left! - IN) < 0.5 && Math.abs(p.spec.walls!.right! - IN) < 0.5, JSON.stringify(p.spec.walls));
+  const d = designRun(p.spec, cat);
+  const fl = d.parts.find((x) => x.id === 'filler-L')!, top = d.parts.find((x) => x.id === 'top')!;
+  assert.ok(Math.abs(fl.box.size[0] - IN) < 0.5);
+  assert.ok(Math.abs(top.box.size[0] - 50 * IN) < 0.5, `top ${top.box.size[0] / IN}"`); // wall to wall
+  assert.equal(top.band?.edges, 'front');                                                 // scribed ends stay raw
+  assert.ok(Math.abs(cutSize(p, 'top').length - (50 * IN + 2 * 19)) < 0.5);             // 3/4" to scribe each end
+  assert.ok(Math.abs(cutSize(p, 'filler-L').width - (IN + 19)) < 0.5);
+  assert.ok(d.parts.some((x) => x.id === 'filler-R-backer'));
+  assert.ok(d.sides.every((s) => !s.finished), JSON.stringify(d.sides));                 // walls hide both ends
+  assert.ok(d.hardware.some((h) => /filler backer/.test(h.item) && h.install));
+  assert.deepEqual(collisions(d), []);
+});
+
+test('a vanity standing free on a long wall has finished ends: no screws through them', () => {
+  const p = planVanity({ wallLength: 120 * IN, obstacles: [{ kind: 'door', x0: 0, x1: 30 * IN }, { kind: 'door', x0: 70 * IN, x1: 120 * IN }] });
+  assert.equal(p.spec.walls, undefined);
+  const d = designRun(p.spec, cat);
+  const ends = d.sides.filter((s) => s.finished).map((s) => s.part);
+  const last = p.spec.cabinets[p.spec.cabinets.length - 1].id;
+  assert.deepEqual(ends.sort(), [`A-side-L`, `${last}-side-R`].sort());
+  for (const id of ends) assert.ok(!d.parts.find((x) => x.id === id)!.ops.some((o) => o.note === 'confirmat'), id);
+  assert.ok(d.hardware.some((h) => /Pocket screws/.test(h.item)));
+  assert.ok(d.install.some((s) => /Finished sides .*no screws go through them/.test(s)));
+  if (p.spec.cabinets.length > 1) assert.ok(d.parts.find((x) => x.id === 'A-side-R')!.ops.some((o) => o.note === 'confirmat'));
+});
+
+test('connector holes line up through neighbouring sides and stay off the runners', () => {
+  const d = designRun(planVanity({ wallLength: 61 * IN }).spec, cat);
+  const a = d.parts.find((x) => x.id === 'A-side-R')!, b = d.parts.find((x) => x.id === 'B-side-L')!;
+  const holes = (p: typeof a) => p.ops.filter((o) => o.kind === 'hole' && o.note === 'cabinet connector') as Extract<typeof a.ops[number], { kind: 'hole' }>[];
+  assert.ok(holes(a).length >= 3);
+  assert.deepEqual(holes(a).map((h) => [h.at[1], h.at[2]]), holes(b).map((h) => [h.at[1], h.at[2]]));
+  const runners = a.ops.filter((o) => o.kind === 'hole' && o.note === 'runner screw').map((o) => (o as { at: number[] }).at[1]);
+  for (const h of holes(a)) assert.ok(runners.every((y) => Math.abs(y - h.at[1]) >= 25), `connector at y ${h.at[1]}`);
+});
+
+test('a built-in bookcase gets a ceiling scribe strip on a cleat, cut tall to scribe', () => {
+  const p = plan({ project: 'bookcase', wallLength: 100 * IN, wallHeight: 96 * IN });
+  const d = designRun(p.spec, cat);
+  const strip = d.parts.find((x) => x.id === 'scribe-ceiling-1')!;
+  assert.ok(strip && d.parts.some((x) => x.id === 'scribe-cleat-1'));
+  const top = d.overall.height + d.overall.elevation;
+  assert.ok(Math.abs(top + strip.box.size[1] - 96 * IN) < 0.5, 'reaches the ceiling');
+  assert.ok(Math.abs(cutSize(p, 'scribe-ceiling-1').width - strip.box.size[1] - 19) < 0.5);
+  assert.deepEqual(collisions(d), []);
+  // a 12' ceiling is too far above for a strip
+  assert.ok(!designRun(plan({ project: 'bookcase', wallLength: 100 * IN, wallHeight: 144 * IN }).spec, cat).parts.some((x) => x.id.startsWith('scribe-')));
+});
+
+test('furniture on legs comes with an anti-tip kit; islands fix to the floor; every island side is hidden', () => {
+  assert.ok(designRun(plan({ project: 'dresser', wallLength: 80 * IN }).spec, cat).hardware.some((h) => /Anti-tip/.test(h.item) && h.install));
+  const isl = designRun(plan({ project: 'island', wallLength: 180 * IN }).spec, cat);
+  assert.ok(isl.sides.every((s) => !s.finished));
+  assert.ok(isl.hardware.some((h) => /floor cleats/.test(h.item)));
 });

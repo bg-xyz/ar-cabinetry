@@ -27,7 +27,6 @@ const ORDERS: Order[] = [
   (a, b) => b.length + b.width - a.length - a.width,
   (a, b) => Math.max(b.length, b.width) - Math.max(a.length, a.width) || b.length * b.width - a.length * a.width,
 ];
-
 export function nest(parts: FlatPart[], cat: Catalog, o: NestOptions, warnings: string[], blocks: MatchBlock[] = []): Sheet[] {
   const byMat = new Map<string, Item[]>();
   const items: Item[] = [...parts, ...blocks.map((b): Item => ({
@@ -41,18 +40,31 @@ export function nest(parts: FlatPart[], cat: Catalog, o: NestOptions, warnings: 
     const m = lookup(cat.materials, material, 'material');
     let best: { sheets: Sheet[]; warnings: string[] } | null = null;
     for (const preferLong of m.longSheet ? [false, true] : [false]) for (const order of o.quick ? ORDERS.slice(0, 1) : ORDERS) {
+      const fit = FITS[0];
       const w: string[] = [];
-      const ss = nestMaterial(material, list, cat, o, w, order, preferLong);
+      const ss = nestMaterial(material, list, cat, o, w, order, preferLong, fit);
       if (!best || area(ss) < area(best.sheets) - 1 || (Math.abs(area(ss) - area(best.sheets)) <= 1 && lastYield(ss) < lastYield(best.sheets)))
         best = { sheets: ss, warnings: w };
     }
-    sheets.push(...best!.sheets);
+    // a long sheet whose parts would all fit one standard sheet is swapped for it (less plywood)
+    const ss = best!.sheets.map((sh) => {
+      if (!m.longSheet || sh.size[0] !== m.longSheet[0] || sh.size[1] !== m.longSheet[1] || sh.placements.some((pl) => pl.part.match)) return sh;
+      try {
+        const alt = nestMaterial(material, sh.placements.map((pl) => pl.part), cat, o, [], ORDERS[0], false, FITS[0]);
+        return alt.length === 1 && alt[0].size[0] * alt[0].size[1] < sh.size[0] * sh.size[1] ? alt[0] : sh;
+      } catch { return sh; }
+    });
+    sheets.push(...ss);
     warnings.push(...best!.warnings);
   }
   return sheets;
 }
 
-function nestMaterial(material: string, list: Item[], cat: Catalog, o: NestOptions, warnings: string[], order: Order, preferLong: boolean): Sheet[] {
+// Which free rectangle a part goes in: best short side fit (MaxRects' best general rule).
+type Fit = (f: Rect, w: number, h: number) => number;
+const FITS: Fit[] = [(f, w, h) => Math.min(f.w - w, f.h - h) * 1e6 + Math.max(f.w - w, f.h - h)];
+
+function nestMaterial(material: string, list: Item[], cat: Catalog, o: NestOptions, warnings: string[], order: Order, preferLong: boolean, fit: Fit): Sheet[] {
   const sheets: Sheet[] = [];
   {
     // Parts too long for the standard sheet go on the material's long sheet (e.g. 4x8 Baltic
@@ -68,7 +80,7 @@ function nestMaterial(material: string, list: Item[], cat: Catalog, o: NestOptio
         const w = (rotated ? part.width : part.length) + o.spacing, h = (rotated ? part.length : part.width) + o.spacing;
         for (const f of bin.free) {
           if (w > f.w + 1e-6 || h > f.h + 1e-6) continue;
-          const score = Math.min(f.w - w, f.h - h) * 1e6 + Math.max(f.w - w, f.h - h);
+          const score = fit(f, w, h);
           if (!best || score < best.score) best = { r: { x: f.x, y: f.y, w, h }, rotated, score };
         }
       }

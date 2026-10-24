@@ -9,10 +9,13 @@ import type { Catalog, HardwareLine, Part, Style } from './types.ts';
 const FACE_AXIS = { x: 0, y: 1, z: 2 } as const;
 
 export function bandFor(p: Part): Part['band'] {
-  if (!p.exposed) return undefined;
+  if (!p.exposed || p.scribe && p.role !== 'top') return undefined; // fillers + scribe strips: trimmed to the wall on site
   const [sx, sy, sz] = p.box.size;
   if (p.role === 'door' || p.role === 'drawerFront') return { edges: 'all round', length: 2 * (sx + sy) };
-  if (p.role === 'top') return { edges: 'front + ends', length: sx + 2 * sz };
+  if (p.role === 'top') { // an end scribed to a wall stays raw
+    const open = 2 - Number(!!p.scribe?.lo) - Number(!!p.scribe?.hi);
+    return { edges: ['front', 'front + open end', 'front + ends'][open], length: sx + open * sz };
+  }
   if (p.id === 'back-panel') return { edges: 'top + ends', length: sx + 2 * sy };
   if (p.role === 'endPanel') return { edges: 'front + top', length: sy + sz };
   const n = FACE_AXIS[p.faceA[1] as 'x' | 'y' | 'z'];

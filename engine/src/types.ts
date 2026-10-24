@@ -39,6 +39,9 @@ export interface Part {
   ops: WorldOp[];
   match?: string;       // grain-match group: parts cut side by side from one panel, in sequence
   band?: { edges: string; length: number }; // edgebanding on this part's visible edges (mm of tape)
+  // scribed to a wall or ceiling on site: cut oversize along `axis`, by `lo` past box.min and `hi` past
+  // the far side (the box is the installed size; the installer trims the extra to the wall)
+  scribe?: { axis: Axis; lo: number; hi: number; edge: string };
 }
 
 // ---- flattened (CNC) form -------------------------------------------------
@@ -248,6 +251,9 @@ export interface RunSpec {
   top?: { material: string; overhangSides: number; overhangFront: number; overhangBack?: number }; // overhangBack: island seating
   sinks?: SinkSpec[];
   plumbing?: { width: number; bottom: number; top: number }; // back cutout, heights above floor
+  // Where the run meets the room: left/right = gap to a side wall, closed by a scribe filler;
+  // ceiling = floor-to-ceiling height, closed by a scribe strip when the gap above is small.
+  walls?: { left?: number; right?: number; ceiling?: number };
 }
 
 // Bought items shown in the 3D/AR model but never cut (sinks, faucets, pulls).
@@ -264,7 +270,12 @@ export interface HardwareLine {
   item: string;
   qty: number;
   buy?: string | null;
+  install?: boolean;      // the installer's kit (wall screws, shims, anti-tip), not the shop's
 }
+
+// How a carcass side is fastened: hidden sides take confirmat screws (holes drilled on the CNC),
+// finished sides show, so nothing goes through them from outside.
+export interface SideFastening { part: string; finished: boolean; why: string }
 
 export interface Design {
   spec: RunSpec;
@@ -274,4 +285,6 @@ export interface Design {
   fixtures: Fixture[];
   warnings: string[];
   overall: { width: number; height: number; depth: number; elevation: number };
+  sides: SideFastening[];
+  install: string[];      // assembly + install steps, in order
 }

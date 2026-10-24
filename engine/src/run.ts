@@ -4,6 +4,7 @@
 import { lookup, resolveStyle } from './catalog.ts';
 import { buildCabinet } from './cabinet.ts';
 import { applyBanding } from './edges.ts';
+import { fasten, installKit, installSteps, roomFit, SCRIBE } from './install.ts';
 import type { CabinetOptions } from './cabinet.ts';
 import { specToMm } from './units.ts';
 import type { Catalog, Design, Fixture, HardwareLine, Part, RunSpec, Vec3, WorldOp } from './types.ts';
@@ -91,8 +92,17 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
     cabOpts[cab.id] = { drain: { x: local, clearZ: cz + 50, width: 220 }, backCutouts: cut };
   }
 
+  // where it meets the room: scribe fillers at side walls, a strip under the ceiling
+  const epT = t, epY0 = spec.mounting === 'toe-kick' ? -kickH : 0;
+  const fit = roomFit(spec, {
+    xL: panelL ? -epT : 0, xR: totalW + (panelR ? epT : 0), y0: epY0, y1: H, faceZ: D + frontDepth, t, material: style.carcass,
+    floorY: -elev, hasEndPanel: { left: panelL, right: panelR }, boxes: spec.cabinets.length,
+  });
+  const fillerL = fit.fillerL > 0, fillerR = fit.fillerR > 0;
+
   spec.cabinets.forEach((c, i) => {
-    const endGap = { left: panelL && i === 0, right: panelR && i === spec.cabinets.length - 1 };
+    // an end panel or a filler beside the end box: its fronts run out to the full gap
+    const endGap = { left: (panelL || fillerL) && i === 0, right: (panelR || fillerR) && i === spec.cabinets.length - 1 };
     const r = buildCabinet(c, style, cat, { ...cabOpts[c.id], endGap });
     parts.push(...r.parts.map((p) => translate(p, xAt[c.id])));
     hardware.push(...r.hardware);
@@ -129,7 +139,6 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
   }
 
   // flush-face end panels: same finish as the fronts, down to the floor on floor-standing runs
-  const epT = t, epY0 = spec.mounting === 'toe-kick' ? -kickH : 0;
   const endPanel = (side: 'L' | 'R', x0: number): Part => ({
     id: `end-panel-${side}`, name: `End panel (${side === 'L' ? 'left' : 'right'})`, cabinet: 'run', role: 'endPanel', material: style.carcass,
     box: { min: [x0, epY0, 0], size: [epT, H - epY0, D + frontDepth] }, faceA: side === 'L' ? '-x' : '+x', grain: 1, exposed: true, ops: [],
@@ -148,21 +157,31 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
   }
 
   if (spec.top) {
+    // at a wall the top runs over the filler to it, cut 3/4" long to scribe
     const oh = spec.top.overhangSides;
-    const left = -oh - (panelL ? epT : 0), right = totalW + oh + (panelR ? epT : 0);
+    const left = (fillerL ? -fit.fillerL : -oh) - (panelL ? epT : 0), right = totalW + (fillerR ? fit.fillerR : oh) + (panelR ? epT : 0);
     const back = -backT - (spec.top.overhangBack ?? 0);
     parts.push({
       id: 'top', name: 'Countertop', cabinet: 'run', role: 'top', material: spec.top.material,
       box: { min: [left, H, back], size: [right - left, topT, topFrontZ - back] },
       faceA: '+y', grain: 0, exposed: true, ops: topOps,
+      ...(fillerL || fillerR ? { scribe: { axis: 0 as const, lo: fillerL ? SCRIBE : 0, hi: fillerR ? SCRIBE : 0, edge: 'wall end' } } : {}),
     });
   }
+  parts.push(...fit.parts);
+  hardware.push(...fit.hardware);
 
-  hardware.push(
-    { item: 'Confirmat / cabinet screws (carcass, 7x50mm)', qty: spec.cabinets.length * 16 },
-    { item: spec.mounting === 'wall-hung' ? 'Wall screws for hanging rail (into studs)' : 'Screws to secure cabinet to wall (into studs)', qty: spec.cabinets.length * (spec.mounting === 'wall-hung' ? 4 : 2) },
-  );
-  if (spec.cabinets.length > 1) hardware.push({ item: 'Cabinet connector bolts (joining boxes)', qty: (spec.cabinets.length - 1) * 4 });
+  // screws: confirmats only where the side is hidden; finished sides are glued + pocket-screwed from inside
+  const n = spec.cabinets.length;
+  const why = (i: number, side: 'L' | 'R'): string | null => {
+    const first = side === 'L' ? i === 0 : i === n - 1;
+    if (!first) return `against ${spec.cabinets[side === 'L' ? i - 1 : i + 1].id}`;
+    if (side === 'L' ? panelL : panelR) return 'behind the end panel';
+    if (side === 'L' ? fillerL : fillerR) return 'against the wall, behind the scribe filler';
+    return null;
+  };
+  const fastening = fasten(parts, spec.cabinets, why);
+  hardware.push(...fastening.hardware, ...installKit(spec, totalW, spec.mounting === 'legs'));
 
   hardware.push(...applyBanding(parts, style, cat));
 
@@ -172,8 +191,9 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
     else if (p.role === 'drawerBottom') p.match = `drawer bottoms @${Math.round(p.box.min[1])}`;
   }
 
+  const install = installSteps(spec, { banded: style.edges === 'banded', sides: fastening.sides, fit, legs: spec.mounting === 'legs', elevation: elev, kickHeight: kickH });
   return {
-    spec, style, parts, hardware: mergeHardware(hardware), fixtures, warnings,
+    spec, style, parts, hardware: mergeHardware(hardware), fixtures, warnings, sides: fastening.sides, install,
     overall: { width: totalW + (panelL ? epT : 0) + (panelR ? epT : 0), height: H + topT, depth: topFrontZ + backT + (spec.top?.overhangBack ?? 0), elevation: elev },
   };
 }

@@ -12,8 +12,12 @@
 //     widest; largest standard width that fits with 1/2" to spare each side; 60"+ gets two sinks
 //   - bookcase: fills the widest clear stretch wall to wall, as tall as the ceiling allows
 //   - console, dresser: largest standard width that fits, centred in the widest stretch
+//   - where a vanity or bookcase ends within 4" of a side wall, a scribe filler closes the gap (a
+//     bookcase drops its end panel there: the filler takes its place); a bookcase gets a scribe strip
+//     up to the ceiling when the gap above is 8" or less
 
 import type { CabinetSpec, RunSpec, Style, Zone } from './types.ts';
+import { MAX_CEILING_SCRIBE, MAX_FILLER, SCRIBE } from './install.ts';
 
 const IN = 25.4;
 export const STANDARD_WIDTHS = [24, 30, 36, 42, 48, 54, 60, 66, 72, 84].map((w) => w * IN);
@@ -71,6 +75,19 @@ function capToSheet(width: number, notes: string[]): number {
   return MAX_TOP;
 }
 const feetInches = (mm: number) => { const i = Math.round(mm / IN); return `${Math.floor(i / 12)}' ${i % 12}"`; };
+
+/** Gaps to the side walls at each end, when the build stops close enough to one for a scribe filler. */
+export function wallGaps(L: number, span: [number, number], x0: number, x1: number): { left?: number; right?: number } {
+  const out: { left?: number; right?: number } = {};
+  if (span[0] <= 1 && x0 - span[0] <= MAX_FILLER) out.left = x0 - span[0];
+  if (span[1] >= L - 1 && span[1] - x1 <= MAX_FILLER) out.right = span[1] - x1;
+  return out;
+}
+
+const fillerNote = (g: { left?: number; right?: number }) => {
+  const n = Number(g.left !== undefined) + Number(g.right !== undefined);
+  return n ? `Scribe filler${n > 1 ? 's' : ''} close${n > 1 ? '' : 's'} the gap to the wall${n > 1 ? 's' : ''}: cut 3/4" oversize and trimmed to the wall on site.` : '';
+};
 
 /** Clear stretches of the wall, after taking out everything the build can't overlap. */
 export function freeSpans(wallLength: number, obstacles: Obstacle[] = [], topHeight = 0, lowWindows = false): [number, number][] {
@@ -163,6 +180,15 @@ export function planVanity(input: PlanInput): Plan {
   obstacleNotes(input, 33 * IN, notes);
   if (holdsSink && sinks === 2) notes.push('Two sinks means a second drain: the plumber adds a branch.');
 
+  // fillers at the side walls; the top runs over them to the wall, so it has to come off one sheet
+  let walls = wallGaps(L, span, x0, x0 + width);
+  const reach = (walls.left !== undefined ? walls.left + SCRIBE : 0) + (walls.right !== undefined ? walls.right + SCRIBE : 0);
+  if (reach && width + reach > MAX_TOP) {
+    walls = {};
+    notes.push('The top is too long to reach the walls from one sheet: finish the ends with trim, or use a stone top.');
+  }
+  if (fillerNote(walls)) notes.push(fillerNote(walls));
+
   const { cabinets, sinkCabinets } = vanityLayout(width);
   const spec: RunSpec = {
     name: `${Math.round(width / IN)}" ${sinks === 2 ? 'double' : 'single'} vanity`,
@@ -173,6 +199,7 @@ export function planVanity(input: PlanInput): Plan {
     cabinets,
     top: { material: 'bb18', overhangSides: 0, overhangFront: 0.5 * IN },
     sinks: sinkCabinets.map((c) => ({ cabinet: c, sink: 'vessel-round-16', faucet: 'vessel-single-hole' })),
+    ...(walls.left !== undefined || walls.right !== undefined ? { walls } : {}),
   };
   return { project: 'vanity', spec, x0, width, sinks, span, spans, widthOptions, notes };
 }
@@ -239,19 +266,32 @@ export function planBookcase(input: PlanInput): Plan {
     : `Fills ${inches(width)} of wall, ${widths.length} bay${widths.length > 1 ? 's' : ''} of ${inches(widths[0])}, ${feetInches(topHeight)} tall.`);
   const gap = (input.wallHeight ?? 96 * IN) - topHeight;
   notes.push(!input.wallHeight ? 'Sized for an 8\' ceiling.'
-    : gap > 3 * IN ? `Tops out at ${feetInches(topHeight)} (the longest plywood sheet); a trim board fills up to your ${feetInches(input.wallHeight)} ceiling.`
-    : `Stops ${inches(gap)} below your ${feetInches(input.wallHeight)} ceiling: room to stand it up, plus a scribe strip.`);
+    : gap > MAX_CEILING_SCRIBE ? `Tops out at ${feetInches(topHeight)} (the longest plywood sheet), leaving ${inches(gap)} open to your ${feetInches(input.wallHeight)} ceiling.`
+    : gap > 3 * IN ? `Tops out at ${feetInches(topHeight)} (the longest plywood sheet); a ${inches(gap)} scribe strip closes it to your ${feetInches(input.wallHeight)} ceiling.`
+    : `Stops ${inches(gap)} below your ${feetInches(input.wallHeight)} ceiling: room to stand it up, and a scribe strip closes the gap.`);
   obstacleNotes(input, topHeight, notes);
 
+  // at a side wall the end panel would never be seen: a scribe filler takes its place (and its width)
+  const gaps = wallGaps(L, span, x0 - T, x0 + caseW + T);
+  const walls: RunSpec['walls'] = {
+    ...(gaps.left !== undefined ? { left: gaps.left + T } : {}),
+    ...(gaps.right !== undefined ? { right: gaps.right + T } : {}),
+    ...(input.wallHeight ? { ceiling: input.wallHeight } : {}),
+  };
+  const panels = gaps.left === undefined && gaps.right === undefined ? 'both' : gaps.left === undefined ? 'left' : gaps.right === undefined ? 'right' : 'none';
+  if (fillerNote(gaps)) notes.push(fillerNote(gaps));
+  width = caseW + T * (Number(gaps.left === undefined) + Number(gaps.right === undefined));
+
   const spec: RunSpec = {
-    name: `${Math.round(width / IN)}" built-in bookcase`,
+    name: `${Math.round((width + (walls.left ?? 0) + (walls.right ?? 0)) / IN)}" built-in bookcase`, // wall to wall
     units: 'mm',
     style: { preset: 'classic-euro', grainMatch: 'waterfall', ...input.style }, // tall built-ins: vertical grain
     mounting: 'toe-kick',
     elevation: 0,
     kickHeight: KICK,
-    endPanels: 'both',
+    endPanels: panels,
     cabinets,
+    ...(Object.keys(walls).length ? { walls } : {}),
   };
   return { project: 'bookcase', spec, x0, width, sinks: 0, span, spans, widthOptions, notes };
 }

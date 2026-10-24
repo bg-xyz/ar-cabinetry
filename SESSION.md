@@ -260,6 +260,20 @@ photo on the site. Build **21** on TestFlight (internal); Vision Pro compiles in
 - iPhone build **23** uploaded (commit 0c5f832); Vision Pro **BUILD SUCCEEDED**; site deployed.
 - ElevenLabs left this month: about 8 videos, ~77 images (renews Nov 17; cancel reminder stands).
 
+## 2026-10-24 (day): scribe pieces, screws only where hidden, install kit
+
+Blake: "make sure to have scribe pieces for installing to a wall, as well as hardware, and which sides screws can
+be used on if its not a finished side". Before this the engine had only a hanging rail and a flat screw count.
+
+- `engine/src/install.ts`: scribe fillers + backers at side walls, countertop to the walls (+3/4" each wall end),
+  ceiling scribe strip + cleat on built-ins; confirmat locator holes (5mm through) on hidden sides only, finished
+  sides glued + pocket-screwed from inside; connector holes through both neighbours at one spot, kept off runners
+  and hinge plates; install kit (stud screws counted per stud, shims, anti-tip on legs furniture, island floor
+  cleats, silicone) and ordered assembly + install steps. Planner sets `walls` (vanity + bookcase).
+- Nester: a long sheet whose parts fit one standard sheet is swapped for it. The "off never uses more plywood"
+  test is now an aggregate (greedy nesting can lose a sheet either way on one job).
+- 144 tests, fuzz 3000 plans 0 problems, DXF audit 66 files 0 errors. Bookcase sample now 10 sheets (was 11).
+
 **Next session:**
 - Blake: test build 23 (quick place, sliders, glass home, tap-to-open, Watch it build, share link, island). On
   Safari, try plywise.xyz demos full screen -> "View in your room" (AR Quick Look, untested on a phone).

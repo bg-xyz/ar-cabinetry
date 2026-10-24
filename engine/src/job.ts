@@ -126,10 +126,11 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
   put('fit-test.dxf', sheetDxf(ft.sheet, o.units, ft.labels).dxf);
 
   const band = new Map(design.parts.filter((p) => p.band).map((p) => [p.id, p.band!.edges]));
+  const scribe = new Map(design.parts.filter((p) => p.scribe).map((p) => [p.id, `+${p.scribe!.lo + p.scribe!.hi}mm, trim ${p.scribe!.edge} on site`]));
   const rows = job.flat.map((p) => [p.id, p.name, lookup(cat.materials, p.material, 'material').name, p.thickness.toFixed(1),
     p.length.toFixed(1), p.width.toFixed(1), (p.length / 25.4).toFixed(3), (p.width / 25.4).toFixed(3),
-    p.grainLocked ? 'yes' : 'no', band.get(p.id) ?? '', sheetOf.get(p.id) ?? '']);
-  put('cutlist.csv', [['id', 'name', 'material', 'thickness_mm', 'length_mm', 'width_mm', 'length_in', 'width_in', 'grain_matters', 'band', 'sheet'], ...rows]
+    p.grainLocked ? 'yes' : 'no', band.get(p.id) ?? '', scribe.get(p.id) ?? '', sheetOf.get(p.id) ?? '']);
+  put('cutlist.csv', [['id', 'name', 'material', 'thickness_mm', 'length_mm', 'width_mm', 'length_in', 'width_in', 'grain_matters', 'band', 'scribe', 'sheet'], ...rows]
     .map((r) => r.map((c) => (/[",]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n') + '\n');
 
   put('jobsheet.html', jobSheet(design, job, cat, o, rows));
@@ -138,6 +139,14 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
 }
 
 const usd = (v: number) => `$${v.toFixed(v < 10 ? 2 : 0)}`;
+const sideName = (id: string) => id.replace(/^(\w+)-side-L$/, 'Box $1, left side').replace(/^(\w+)-side-R$/, 'Box $1, right side');
+
+function hardwareTable(title: string, sub: string, design: Design, job: Job, install: boolean): string {
+  const rows = job.quote.hardware.map((h, i) => ({ h, buy: design.hardware[i].buy, install: !!design.hardware[i].install })).filter((r) => r.install === install);
+  if (!rows.length) return '';
+  return `<h2>${title}</h2><p>${sub}</p><table><tr><th>Qty</th><th>Item</th><th>Est.</th><th>Buy</th></tr>
+${rows.map(({ h, buy }) => `<tr><td>${h.qty}</td><td>${esc(h.item)}</td><td>${h.each === null ? '' : usd(h.total)}</td><td>${buy ? `<a href="${esc(buy)}">link</a>` : ''}</td></tr>`).join('')}</table>`;
+}
 function summary(q: Quote): string {
   return `<table><tr><th>Sheets</th><th>Size (mm)</th><th>Qty</th><th>Avg. yield</th><th>Each</th><th>Total</th></tr>
 ${q.sheets.map((s) => `<tr><td>${esc(s.name)}</td><td>${s.size[0]} &times; ${s.size[1]}</td><td>${s.count}</td><td>${Math.round(s.avgYield * 100)}%</td><td>${usd(s.each)}</td><td>${usd(s.total)}</td></tr>`).join('')}
@@ -216,12 +225,17 @@ Overall ${fmtBoth(ov.width)} W &times; ${fmtBoth(ov.height)} H &times; ${fmtBoth
 ${job.matched.length ? `<ul>${job.matched.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
 ${job.warnings.length ? `<h2>Warnings</h2><div class="warn"><ul>${job.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
 <h2>Check before cutting</h2><div class="verify"><ul>${[...verify].map((v) => `<li>${v}</li>`).join('')}</ul></div>
-<h2>Hardware</h2><table><tr><th>Qty</th><th>Item</th><th>Est.</th><th>Buy</th></tr>
-${job.quote.hardware.map((h, i) => `<tr><td>${h.qty}</td><td>${esc(h.item)}</td><td>${h.each === null ? '' : usd(h.total)}</td><td>${design.hardware[i].buy ? `<a href="${esc(design.hardware[i].buy!)}">link</a>` : ''}</td></tr>`).join('')}</table>
+${hardwareTable('Hardware', 'For the shop: goes into the boxes.', design, job, false)}
+${hardwareTable('Install kit', 'For the installer: fixes it to the room.', design, job, true)}
+<h2>Assembly and install</h2>
+<table><tr><th>Carcass side</th><th>Outside face</th><th>Screws</th></tr>
+${design.sides.map((s) => `<tr><td>${esc(sideName(s.part))}</td><td>${s.finished ? '<b>Finished</b>: shows in the room' : `Hidden: ${esc(s.why)}`}</td><td>${s.finished ? 'None through the side: glue + clamp, pocket screws from inside' : 'Confirmat holes drilled (5mm locators)'}</td></tr>`).join('')}</table>
+<ol>${design.install.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>
 <h2>CNC layers</h2><p>Each layer is one toolpath. Suggested order for manual tool changes: all <code>DRILL_*</code> (drill bits), then all <code>POCKET_*</code> (one end mill), then <code>CUT_INSIDE</code>, then <code>CUT_OUTSIDE</code> last.</p>
 <table><tr><th>Layer</th><th>Toolpath</th></tr>${job.layers.map((l) => `<tr><td><code>${l}</code></td><td>${describe(l)}</td></tr>`).join('')}</table>
 <h2>Sheets</h2><div class="sheets">${job.sheets.map((sh, i) => `<figure>${sheetSvg(sh)}<figcaption>Sheet ${i + 1}: ${esc(lookup(cat.materials, sh.material, 'material').name)} (${sh.size[0]} &times; ${sh.size[1]}), ${sh.placements.length} parts</figcaption></figure>`).join('')}</div>
-<h2>Cut list</h2><table><tr><th>Id</th><th>Part</th><th>Material</th><th>T mm</th><th>L mm</th><th>W mm</th><th>L in</th><th>W in</th><th>Grain matters</th><th>Band</th><th>Sheet</th></tr>
+<h2>Cut list</h2><p>Sizes are cut sizes. Parts in the Scribe column are cut oversize on purpose: the extra is trimmed to the wall or ceiling on site.</p>
+<table><tr><th>Id</th><th>Part</th><th>Material</th><th>T mm</th><th>L mm</th><th>W mm</th><th>L in</th><th>W in</th><th>Grain matters</th><th>Band</th><th>Scribe</th><th>Sheet</th></tr>
 ${rows.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table>
 </body></html>`;
 }
