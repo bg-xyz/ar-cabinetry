@@ -39,3 +39,15 @@ Round 3: `gen/island-a.png`, `-b` from `ref/island-oak.png` (84" white oak islan
 ... Use the kitchen island from the reference image exactly as designed ... Its top is a thin honed travertine slab ...
 calm, sunlit 2026 kitchen in a restored 1960s house ... two pale ceramic pendant lamps ... No text, no logos, no people."
 Pick: `site/img/photo-island.jpg`. Image allowance after: about 79 left this month.
+
+## Round 4: the three-scene film (2026-10-24)
+- **Coffee nook** (Blake): engine design `specs/nook-60-coffee.json` (the bookcase planner on a 62" wall: two 30" bays,
+  white oak case, recessed walnut doors, waterfall grain). Ref `ref/nook-oak-walnut.png`, GPT Image 2.5 at **16:9**
+  (matches the video frame): a home coffee nook in a kitchen-dining room, espresso machine and grinder on the shelf
+  above the doors, cups and jars above. Picks `gen/nook-a.png` (steam) -> video: Gemini Omni Flash 1.1, 6s, "very slow
+  gentle push-in ... steam curls up ... the built-in stays perfectly still and sharp".
+- **Kitchen**: video from `gen/island-a.png`, "very slow smooth camera glide from left to right along the island".
+  The model dissolved to a new angle at 1.0-1.8s, so the film uses 2.0s onwards.
+- **Film** `site/img/film-plywise.mp4` (13.75s, 2.75 MB): dresser (from 0.8s) -> nook -> island (from 2.0s) -> the
+  dresser's first 0.8s, 0.8s dissolves (ffmpeg xfade), so the loop is seamless. The site caption follows the scene.
+  Video allowance after: 8 left this month.

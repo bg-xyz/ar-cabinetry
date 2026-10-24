@@ -146,3 +146,8 @@ for (const wall of [120, 132, 150, 180, 240]) {
     assert.deepEqual(collisions(d), []);
   });
 }
+
+test('an island ignores doors in the counter wall (it stands out in the room)', () => {
+  const p = plan({ project: 'island', wallLength: 160 * IN, obstacles: [{ kind: 'door', x0: 60 * IN, x1: 92 * IN }] });
+  assert.equal(Math.round(p.width / IN), 84);
+});

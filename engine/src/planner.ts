@@ -62,6 +62,14 @@ export interface Plan {
 }
 
 const inches = (mm: number) => `${Math.round(mm / IN)}"`;
+
+// A countertop comes off one 8' sheet (2440mm less margins): a longer run needs a joined or stone top.
+const MAX_TOP = 2400;
+function capToSheet(width: number, notes: string[]): number {
+  if (width <= MAX_TOP) return width;
+  notes.push(`The top is cut from one 8' sheet, so this tops out at ${inches(MAX_TOP)}; longer needs a joined or stone top.`);
+  return MAX_TOP;
+}
 const feetInches = (mm: number) => { const i = Math.round(mm / IN); return `${Math.floor(i / 12)}' ${i % 12}"`; };
 
 /** Clear stretches of the wall, after taking out everything the build can't overlap. */
@@ -139,6 +147,7 @@ export function planVanity(input: PlanInput): Plan {
     width = Math.min(input.width, avail);
     if (input.width > avail + 0.01) notes.push(`${inches(input.width)} doesn't fit here; using ${inches(width)}.`);
   }
+  width = capToSheet(width, notes);
   const sinks = width >= DOUBLE_SINK_MIN ? 2 : 1;
 
   // centre on the old sink when there is one (single sink), else centre in the clear stretch
@@ -290,6 +299,7 @@ export function planFurniture(input: PlanInput, project: 'console' | 'dresser'):
     width = Math.min(input.width, avail);
     if (input.width > avail + 0.01) notes.push(`${inches(input.width)} doesn't fit here; using ${inches(width)}.`);
   }
+  width = capToSheet(width, notes);
   const cabinets = furnitureBays(project, width);
   const x0 = span[0] + (span[1] - span[0] - width) / 2;
   notes.unshift(`${inches(span[1] - span[0])} clear here, so a ${inches(width)} ${f.name} fits, centred.`);
@@ -317,8 +327,10 @@ const ISLAND_WIDTHS = [48, 60, 72, 84, 90].map((w) => w * IN); // the plywood to
 const COUNTER_DEPTH = 25 * IN, AISLE = 42 * IN, WALK_ROUND = 36 * IN, SEAT = 24 * IN, SEAT_OVERHANG = 12 * IN;
 
 export function planIsland(input: PlanInput): Plan {
-  const spans = freeSpans(input.wallLength, input.obstacles, 0, false);
-  const span = spans.length ? widest(spans) : [0, input.wallLength] as [number, number];
+  // the island stands out in the room, so doors and windows in the counter wall don't block it:
+  // only the kitchen's length along that wall matters
+  const span: [number, number] = [0, input.wallLength];
+  const spans = [span];
   const avail = span[1] - span[0] - 2 * WALK_ROUND;
   const widthOptions = ISLAND_WIDTHS.filter((w) => w <= avail + 0.01);
   if (!widthOptions.length) throw new Error(`An island needs about ${inches(ISLAND_WIDTHS[0] + 2 * WALK_ROUND)} of kitchen along this wall (${inches(ISLAND_WIDTHS[0])} plus room to walk round it); this one has ${inches(span[1] - span[0])}.`);
@@ -328,6 +340,7 @@ export function planIsland(input: PlanInput): Plan {
     width = Math.min(input.width, avail);
     if (input.width > avail + 0.01) notes.push(`${inches(input.width)} leaves no room to walk round it; using ${inches(width)}.`);
   }
+  width = capToSheet(width, notes);
   const caseW = width - 2 * T;
   const n = Math.max(2, Math.round(caseW / (30 * IN)));
   const w = caseW / n;

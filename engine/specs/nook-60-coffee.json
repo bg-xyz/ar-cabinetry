@@ -1,0 +1,54 @@
+{
+  "name": "60\" coffee nook, white oak + walnut",
+  "units": "mm",
+  "style": {
+    "preset": "recessed-inset",
+    "grainMatch": "waterfall",
+    "frontFinish": "walnut",
+    "carcassFinish": "white-oak"
+  },
+  "mounting": "toe-kick",
+  "elevation": 0,
+  "kickHeight": 101.6,
+  "endPanels": "both",
+  "cabinets": [
+    {
+      "id": "A",
+      "width": 756.5,
+      "height": 2298,
+      "depth": 355.6,
+      "zones": [
+        {
+          "type": "doors",
+          "size": 762,
+          "count": 2,
+          "shelves": 1
+        },
+        {
+          "type": "open",
+          "size": "fill",
+          "shelves": 4
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "width": 756.5,
+      "height": 2298,
+      "depth": 355.6,
+      "zones": [
+        {
+          "type": "doors",
+          "size": 762,
+          "count": 2,
+          "shelves": 1
+        },
+        {
+          "type": "open",
+          "size": "fill",
+          "shelves": 4
+        }
+      ]
+    }
+  ]
+}

@@ -213,10 +213,10 @@
       </div>
     </div>
     <figure class="plate hero-film">
-      <video id="film" muted loop playsinline preload="none" poster="img/photo-lifestyle.jpg" aria-label="A woman in an ivory linen dress walks past a walnut dresser, trailing her fingertips across the drawer fronts">
-        <source src="img/film-dresser.mp4" type="video/mp4">
+      <video id="film" muted loop playsinline preload="none" poster="img/photo-lifestyle.jpg" aria-label="Three rooms: a woman trails her fingertips across a walnut dresser; steam rises in an oak and walnut coffee nook; sunlight crosses a white oak kitchen island">
+        <source src="img/film-plywise.mp4" type="video/mp4">
       </video>
-      <figcaption><span class="label"><b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · banded edges · grain matched</span><span class="label">Visualisation from the engine's design</span></figcaption>
+      <figcaption><span class="label" id="filmCaption"><b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · banded edges · grain matched</span><span class="label">Visualisations from the engine's designs</span></figcaption>
     </figure>
   </div>
 </header>
@@ -426,6 +426,7 @@
   const DEMOS = [
     ['dresser-60-walnut', 'Dresser · walnut'],
     ['island-84-oak', 'Kitchen island · white oak'],
+    ['nook-60-coffee', 'Coffee nook · oak + walnut'],
     ['bookcase-108-builtin', 'Bookcase · white oak'],
     ['vanity-36-udrawers', 'Vanity · U-drawers'],
     ['vanity-48-milan', 'Vanity · Flush'],
@@ -454,6 +455,16 @@
 
   // the hero film: plays muted while on screen; the still stays if motion is reduced or the file is missing
   const film = document.getElementById('film');
+  // the caption follows the scene on screen
+  const scenes = [[0, '<b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · banded edges · grain matched'],
+    [4.8, '<b>Nº 06</b> · Coffee nook · 60 in · White oak, walnut doors · built in'],
+    [10.9, '<b>Nº 05</b> · Kitchen island · 84 in · White oak · finished all round'],
+    [13.3, '<b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · banded edges · grain matched']];
+  const cap = document.getElementById('filmCaption');
+  film?.addEventListener('timeupdate', () => {
+    const html = scenes.filter(([t]) => film.currentTime >= t).pop()[1];
+    if (cap.innerHTML !== html) cap.innerHTML = html;
+  });
   if (film && !matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
     film.preload = 'auto';
     new IntersectionObserver(([e]) => { if (e.isIntersecting) film.play().catch(() => {}); else film.pause(); }, { threshold: 0.2 }).observe(film);
