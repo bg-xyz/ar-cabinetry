@@ -30,6 +30,7 @@ final class ARController: ObservableObject {
         .init(id: "dresser", name: "Dresser", noun: "dresser", room: "Bedroom", icon: "cabinet.fill", ready: true),
         .init(id: "closet", name: "Closet system", noun: "closet", room: "Bedroom", icon: "hanger", ready: false),
         .init(id: "kitchen", name: "Kitchen", noun: "kitchen", room: "Kitchen", icon: "refrigerator.fill", ready: false),
+        .init(id: "island", name: "Kitchen island", noun: "island", room: "Kitchen", icon: "square.split.bottomrightquarter.fill", ready: false),
     ]
 
     /// Grain matching: fronts cut in sequence from one panel so the veneer flows across the face.
@@ -59,6 +60,9 @@ final class ARController: ObservableObject {
     @Published var stylePreset = "classic-euro"
     @Published var widthChoice: Double?   // mm; nil = best fit
     @Published var grainChoice: String?   // nil = the planner's default for the build
+    /// The scan found cabinets or other built-ins on this wall. The user says whether they stay.
+    @Published var builtInsOnWall = false
+    @Published var replaceBuiltIns = false
 
     var current: Project { Self.projects.first { $0.id == project } ?? Self.projects[0] }
 
@@ -304,6 +308,38 @@ final class ARController: ObservableObject {
         arView.snapshot(saveToHDR: false) { image in done(image.map { Self.caption($0, title: title, line: line) }) }
     }
 
+    /// The raw AR frame (no caption) and a prompt to paste into any image AI with it.
+    func photoKit(_ done: @escaping (UIImage?, String) -> Void) {
+        let prompt = photoPrompt
+        arView.snapshot(saveToHDR: false) { image in done(image, prompt) }
+    }
+
+    /// Describes the piece exactly (so the AI keeps it) and asks only for light and finish.
+    var photoPrompt: String {
+        guard let plan, let design else { return "" }
+        let style = ARController.styles.first { $0.preset == stylePreset }
+        let name: (String) -> String = { design.finishes[$0]?.name.components(separatedBy: " (").first ?? $0 }
+        var facts = ["\(plan.name)", "\(style?.name.lowercased() ?? "") style (\(style?.hint.lowercased() ?? ""))"]
+        if let c = choice {
+            facts.append("\(name(c.fronts).lowercased()) fronts")
+            facts.append("\(name(c.cabinet).lowercased()) cabinet")
+            if design.parts.contains(where: { $0.role == "top" }) { facts.append("\(name(c.top).lowercased()) top") }
+        }
+        facts.append(design.parts.contains { $0.banded == true } ? "clean veneer edgebanding on every visible edge" : "exposed Baltic birch plywood edges")
+        let drawers = design.parts.filter { $0.role == "drawerFront" }.count, doors = design.parts.filter { $0.role == "door" }.count
+        if drawers > 0 { facts.append("\(drawers) drawer\(drawers == 1 ? "" : "s")") }
+        if doors > 0 { facts.append("\(doors) door\(doors == 1 ? "" : "s")") }
+        if design.fixtures.contains(where: { $0.kind == "pull" }) { facts.append("slim black bar pulls near the top of each front") }
+        if design.fixtures.contains(where: { $0.kind == "leg" && $0.leg?.finish != nil }) { facts.append("tapered, slightly splayed solid wood legs with brass tips") }
+        return """
+        Turn this AR photo into a photorealistic editorial interior photograph. Keep the room exactly as it is (walls, \
+        floor, window, everything already there) and keep the cabinet exactly as designed: \(facts.joined(separator: ", ")). \
+        Same size, same position on the wall, same drawer and door count, same pulls. Make the wood look real with \
+        natural grain flowing across the fronts, soft natural daylight, gentle shadows, a few simple styling objects. \
+        Medium format, natural color, quiet luxury. No text, no logos.
+        """
+    }
+
     static func caption(_ image: UIImage, title: String, line: String) -> UIImage {
         let size = image.size
         return UIGraphicsImageRenderer(size: size).image { ctx in
@@ -339,13 +375,16 @@ final class ARController: ObservableObject {
         along = 0
         out = 0
         widthChoice = nil
+        replaceBuiltIns = false
         replan()
     }
 
     /// Ask the engine for the best build for this wall's clear space and height, then show it.
     func replan() {
         guard let w = wall, let f = frame, let room else { return }
-        let (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room)
+        var (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room)
+        builtInsOnWall = obstacles.contains { $0.kind == "storage" }
+        if replaceBuiltIns { obstacles.removeAll { $0.kind == "storage" } }
         let input = PlanInput(project: project, wallLength: Double(f.length * 1000), wallHeight: Double(f.height * 1000),
                               obstacles: obstacles, sinkAt: project == "vanity" ? sinkAt : nil,
                               width: widthChoice, style: style)
@@ -408,6 +447,12 @@ final class ARController: ObservableObject {
         var s = ["preset": stylePreset]
         if let g = grainChoice { s["grainMatch"] = g }
         return s
+    }
+
+    func setReplaceBuiltIns(_ on: Bool) {
+        replaceBuiltIns = on
+        along = 0
+        replan()
     }
 
     func setGrain(_ id: String) {

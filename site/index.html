@@ -136,9 +136,16 @@
   .demo iframe { width: 100%; height: 100%; border: 0; display: block; }
   .demo .poster { position: absolute; inset: 0; display: grid; place-items: center; cursor: pointer; background: center / cover no-repeat; }
   .demo .poster span { background: var(--ink); color: var(--paper); padding: 14px 22px; border-radius: 3px; font-weight: 500; letter-spacing: .03em; }
-  .picker { display: flex; flex-wrap: wrap; gap: 0; margin-top: 18px; border-top: 1px solid var(--rule); }
-  .picker button { font: 400 14px var(--sans); padding: 12px 16px 12px 0; margin-right: 18px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--muted); cursor: pointer; }
-  .picker button.on { color: var(--ink); border-bottom-color: var(--brass); }
+  /* finger-scroll slider: flick through, the card in the middle is the pick */
+  .picker { display: flex; gap: 10px; margin: 18px calc(-1 * clamp(16px, 4vw, 40px)) 0; padding: 4px clamp(16px, 4vw, 40px) 10px;
+    overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .picker::-webkit-scrollbar { display: none; }
+  .picker button { flex: 0 0 auto; scroll-snap-align: center; min-width: 150px; text-align: left; font: 400 19px/1.1 var(--serif);
+    padding: 14px 16px; border: 1px solid var(--rule); border-radius: 7px; background: transparent; color: var(--ink); cursor: pointer;
+    transition: background .25s, border-color .25s, transform .25s; }
+  .picker button small { display: block; margin-top: 6px; font: 500 10px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .picker button:hover { transform: translateY(-2px); }
+  .picker button.on { border-color: var(--brass); background: color-mix(in srgb, var(--brass) 14%, transparent); }
   @media (max-width: 640px) { .demo { aspect-ratio: 3 / 4; } }
 
   /* makers */
@@ -340,7 +347,7 @@
       </div>
     </div>
     <div class="demo" id="demoBox">
-      <div class="poster" id="poster" style="background-image:url(img/hero.jpg)"><span>Load the 3D model · 3 MB</span></div>
+      <div class="poster" id="poster" style="background-image:url(img/demo-poster.jpg)"><span>Load the 3D model · 3 MB</span></div>
     </div>
     <div class="picker" id="picker"></div>
   </div>
@@ -428,8 +435,9 @@
   }
   for (const [id, label] of DEMOS) {
     const b = document.createElement('button');
-    b.textContent = label; b.dataset.id = id;
-    b.onclick = () => { document.getElementById('poster')?.remove(); show(id); };
+    const [title, detail] = label.split(' · ');
+    b.innerHTML = `${title}<small>${detail ?? ''}</small>`; b.dataset.id = id;
+    b.onclick = () => { document.getElementById('poster')?.remove(); show(id); b.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); };
     picker.appendChild(b);
   }
   document.getElementById('poster').onclick = () => { document.getElementById('poster').remove(); show(current); };

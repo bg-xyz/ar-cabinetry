@@ -8,37 +8,17 @@ struct CabinetsApp: App {
     }
 }
 
-/// The design language (DESIGN.md): a 1960s European furniture catalogue, set in 2026. Warm paper,
-/// one serif (New York), tracked small caps, brass accents, squared corners.
-enum Theme {
-    static let brass = Color(red: 0.706, green: 0.584, blue: 0.353)
-    static let walnut = Color(red: 0.243, green: 0.165, blue: 0.118)
-    static let signal = Color(red: 0.847, green: 0.341, blue: 0.165)
-    static let onWalnut = Color(red: 0.945, green: 0.902, blue: 0.839)
-    static let paper = Color(UIColor { $0.userInterfaceStyle == .dark
-        ? UIColor(red: 0.082, green: 0.071, blue: 0.059, alpha: 1) : UIColor(red: 0.953, green: 0.933, blue: 0.902, alpha: 1) })
-    static let rule = Color.primary.opacity(0.14)
-
-    static func serif(_ size: CGFloat, italic: Bool = false) -> Font {
-        let f = Font.system(size: size, weight: .regular, design: .serif)
-        return italic ? f.italic() : f
-    }
-}
-
-/// Small caps label: "WHAT ARE YOU BUILDING?"
-struct Caps: View {
-    let text: String
-    var color: Color = .secondary
-    init(_ text: String, color: Color = .secondary) { self.text = text; self.color = color }
-    var body: some View {
-        Text(text).font(.system(size: 11, weight: .medium)).tracking(1.6).textCase(.uppercase).foregroundStyle(color)
-    }
+/// The options under a placed design: one tab row, one finger-roll slider.
+enum OptionTab: String, CaseIterable, Identifiable {
+    case build = "Build", style = "Style", width = "Width", grain = "Grain", fronts = "Fronts", cabinet = "Cabinet", top = "Top"
+    var id: String { rawValue }
 }
 
 struct ContentView: View {
     @StateObject private var ar = ARController()
     @State private var showDetails = false
     @State private var shareItem: ShareItem?
+    @State private var tab: OptionTab = .style
 
     var body: some View {
         ZStack {
@@ -50,7 +30,7 @@ struct ContentView: View {
             }
             .padding()
         }
-        .sheet(item: $shareItem) { item in ShareSheet(items: [item.image, URL(string: "https://plywise.xyz")!]) }
+        .sheet(item: $shareItem) { item in ShareSheet(items: item.items) }
     }
 
     @ViewBuilder private var topBanner: some View {
@@ -70,25 +50,26 @@ struct ContentView: View {
     @ViewBuilder private var controls: some View {
         switch ar.phase {
         case .start:
-            Panel {
+            // glass over the live camera: the room is already the backdrop
+            Panel(glass: true) {
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("Plywise").font(Theme.serif(40))
                     Circle().fill(Theme.brass).frame(width: 7, height: 7)
                     Spacer()
                     Text("Built for your walls.").font(Theme.serif(16, italic: true)).foregroundStyle(.secondary)
                 }
-                Divider().overlay(Theme.rule)
                 Caps("What are you building?")
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(ARController.projects) { p in
-                        ProjectTile(project: p, selected: p.id == ar.project) { ar.project = p.id }
-                    }
+                RollPicker(items: ARController.projects.map { .init(id: $0.id, title: $0.name, detail: $0.ready ? $0.room : "Coming soon", icon: $0.icon, enabled: $0.ready) },
+                           selected: ar.project, large: true) { ar.project = $0 }
+                    .padding(.horizontal, -16)
+                Button { ar.startScan() } label: {
+                    BigButtonLabel(text: ar.current.ready ? "Scan the room" : "\(ar.current.name) is coming soon", enabled: ar.current.ready)
                 }
-                Button { ar.startScan() } label: { BigButtonLabel(text: "Scan the room") }
-                    .buttonStyle(.plain)
+                .buttonStyle(.plain)
+                .disabled(!ar.current.ready)
             }
         case .scanning:
-            Panel {
+            Panel(glass: true) {
                 Caps("Scanning for your \(ar.current.noun)")
                 Text("Walk slowly around the room. Walls light up teal as they're measured; doors orange, windows blue.")
                     .font(.callout)
@@ -96,14 +77,14 @@ struct ContentView: View {
                     .buttonStyle(.plain)
             }
         case .processing:
-            Panel {
+            Panel(glass: true) {
                 HStack(spacing: 12) {
                     ProgressView()
                     Text("Measuring your walls").font(Theme.serif(20, italic: true))
                 }
             }
         case .pickWall:
-            Panel {
+            Panel(glass: true) {
                 Caps(ar.current.name)
                 Text(pickWallHint).font(.callout)
                 Button("Scan again") { ar.startScan() }.font(.footnote.weight(.medium))
@@ -130,6 +111,7 @@ struct ContentView: View {
 
     private var styleName: String { ARController.styles.first { $0.preset == ar.stylePreset }?.name ?? "" }
     private var grainName: String { ARController.grains.first { $0.id == ar.plan?.grainMatch }?.name ?? "" }
+    private var hasTop: Bool { ar.design?.parts.contains { $0.role == "top" } ?? false }
 
     private var placedControls: some View {
         Panel {
@@ -142,40 +124,16 @@ struct ContentView: View {
                         .font(.footnote.weight(.medium))
                 }
             }
-            Caps("\(styleName) · \(grainName == "Off" ? "unmatched" : "grain \(grainName.lowercased())")")
-            ForEach(Array((showDetails ? ar.notes : Array(ar.notes.prefix(1))).enumerated()), id: \.offset) { _, note in
+            Caps("\(styleName) · \(grainName == "Off" ? "unmatched" : "grain \(grainName.lowercased())") · tap a drawer to open it")
+            ForEach(Array((showDetails ? ar.notes : Array(ar.notes.prefix(2))).enumerated()), id: \.offset) { _, note in
                 Text(note).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            Text("Tap a drawer or door to open it.").font(.caption).foregroundStyle(.tertiary)
+            if ar.builtInsOnWall { builtInsRow }
             Divider().overlay(Theme.rule)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
-                Menu {
-                    ForEach(ARController.projects.filter(\.ready)) { p in
-                        Button { ar.setProject(p.id) } label: { checkLabel(p.name, p.id == ar.project) }
-                    }
-                } label: { MenuChip(title: "Build", value: ar.current.name.components(separatedBy: " ").last?.capitalized ?? "") }
-                Menu {
-                    ForEach(ARController.styles, id: \.preset) { s in
-                        Button { ar.setStyle(s.preset) } label: { checkLabel("\(s.name): \(s.hint)", s.preset == ar.stylePreset) }
-                    }
-                } label: { MenuChip(title: "Style", value: styleName) }
-                Menu {
-                    Button { ar.setWidth(nil) } label: { checkLabel(ar.project == "bookcase" ? "Fill the wall" : "Best fit", ar.widthChoice == nil) }
-                    ForEach(ar.widthOptions, id: \.self) { w in
-                        Button { ar.setWidth(w) } label: { checkLabel("\(Int((w / 25.4).rounded()))\"", ar.widthChoice == w) }
-                    }
-                } label: { MenuChip(title: "Width", value: ar.plan.map { "\(Int(($0.width / 25.4).rounded()))\"" } ?? "") }
-                Menu {
-                    ForEach(ARController.grains, id: \.id) { g in
-                        Button { ar.setGrain(g.id) } label: { checkLabel("\(g.name): \(g.hint)", g.id == ar.plan?.grainMatch) }
-                    }
-                } label: { MenuChip(title: "Grain", value: grainName) }
-                if let design = ar.design, let choice = ar.choice {
-                    finishMenu("Fronts", .fronts, choice.fronts, design)
-                    finishMenu("Cabinet", .cabinet, choice.cabinet, design)
-                    if design.parts.contains(where: { $0.role == "top" }) { finishMenu("Top", .top, choice.top, design) }
-                }
-            }
+            tabRow
+            RollPicker(items: items(for: tab), selected: selected(for: tab)) { pick(tab, $0) }
+                .id(tab)   // a fresh strip per tab
+                .padding(.horizontal, -16)
             HStack(spacing: 8) {
                 nudge("arrow.left") { ar.nudge(along: -1) }
                 nudge("arrow.right") { ar.nudge(along: 1) }
@@ -183,29 +141,106 @@ struct ContentView: View {
                 nudge("arrow.up.to.line") { ar.nudge(out: 0.5) }
                 Spacer()
                 Button("Other wall") { ar.pickAnotherWall() }.font(.footnote.weight(.medium))
-                Button { ar.snapshot { image in shareItem = image.map(ShareItem.init) } } label: {
-                    Image(systemName: "square.and.arrow.up").font(.footnote.weight(.semibold)).frame(width: 38, height: 32)
-                        .foregroundStyle(Theme.onWalnut).background(Theme.walnut, in: RoundedRectangle(cornerRadius: 4))
+                shareMenu
+            }
+        }
+    }
+
+    /// The scan found existing cabinets on this wall: do they stay (and block) or go (plan over them)?
+    private var builtInsRow: some View {
+        HStack {
+            Text("Existing cabinets on this wall").font(.footnote)
+            Spacer()
+            Picker("Existing cabinets", selection: Binding(get: { ar.replaceBuiltIns }, set: { ar.setReplaceBuiltIns($0) })) {
+                Text("Keep").tag(false)
+                Text("Replace").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 160)
+        }
+    }
+
+    private var tabRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 18) {
+                ForEach(OptionTab.allCases.filter { $0 != .top || hasTop }) { t in
+                    Button { withAnimation(.snappy) { tab = t } } label: {
+                        VStack(spacing: 4) {
+                            Text(t.rawValue).font(.system(size: 11, weight: .semibold)).tracking(1.4).textCase(.uppercase)
+                                .foregroundStyle(t == tab ? Color.primary : Color.secondary)
+                            Rectangle().fill(t == tab ? Theme.brass : .clear).frame(height: 2)
+                        }
+                        .fixedSize()
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Share a photo")
             }
+        }
+        .sensoryFeedback(.selection, trigger: tab)
+    }
+
+    private func finishItems(_ design: Design) -> [RollPicker.Item] {
+        design.finishes.keys.sorted().map { id in
+            let name = design.finishes[id]?.name.components(separatedBy: " (").first?.replacingOccurrences(of: " veneer", with: "") ?? id
+            let words = name.components(separatedBy: " ")
+            return .init(id: id, title: words.last == "birch" ? "Birch" : name.replacingOccurrences(of: "Painted ", with: ""),
+                         detail: design.finishes[id]?.paint != nil ? "paint" : "veneer")
         }
     }
 
-    @ViewBuilder private func checkLabel(_ text: String, _ on: Bool) -> some View {
-        if on { Label(text, systemImage: "checkmark") } else { Text(text) }
+    private func items(for tab: OptionTab) -> [RollPicker.Item] {
+        switch tab {
+        case .build: return ARController.projects.filter(\.ready).map { .init(id: $0.id, title: $0.name.components(separatedBy: " ").last?.capitalized ?? $0.name, detail: $0.room) }
+        case .style: return ARController.styles.map { .init(id: $0.preset, title: $0.name, detail: $0.hint) }
+        case .width:
+            let fit = RollPicker.Item(id: "fit", title: ar.project == "bookcase" ? "Fill" : "Best fit", detail: "planned")
+            return [fit] + ar.widthOptions.map { .init(id: String(Int($0)), title: "\(Int(($0 / 25.4).rounded()))\"", detail: "\(Int($0)) mm") }
+        case .grain: return ARController.grains.map { .init(id: $0.id, title: $0.name, detail: $0.hint) }
+        case .fronts, .cabinet, .top: return ar.design.map(finishItems) ?? []
+        }
     }
 
-    private func finishMenu(_ title: String, _ slot: FinishSlot, _ current: String, _ design: Design) -> some View {
+    private func selected(for tab: OptionTab) -> String {
+        switch tab {
+        case .build: return ar.project
+        case .style: return ar.stylePreset
+        case .width: return ar.widthChoice.map { String(Int($0)) } ?? "fit"
+        case .grain: return ar.plan?.grainMatch ?? "across"
+        case .fronts: return ar.choice?.fronts ?? ""
+        case .cabinet: return ar.choice?.cabinet ?? ""
+        case .top: return ar.choice?.top ?? ""
+        }
+    }
+
+    private func pick(_ tab: OptionTab, _ id: String) {
+        switch tab {
+        case .build: ar.setProject(id)
+        case .style: ar.setStyle(id)
+        case .width: ar.setWidth(id == "fit" ? nil : ar.widthOptions.first { String(Int($0)) == id })
+        case .grain: ar.setGrain(id)
+        case .fronts: ar.setFinish(.fronts, id)
+        case .cabinet: ar.setFinish(.cabinet, id)
+        case .top: ar.setFinish(.top, id)
+        }
+    }
+
+    /// Share: a captioned photo, or the raw frame plus a prompt for any image AI (no AI in the app).
+    private var shareMenu: some View {
         Menu {
-            ForEach(design.finishes.keys.sorted(), id: \.self) { id in
-                Button { ar.setFinish(slot, id) } label: { checkLabel(design.finishes[id]?.name ?? id, id == current) }
+            Button { ar.snapshot { image in if let image { shareItem = ShareItem(items: [image, URL(string: "https://plywise.xyz")!]) } } } label: {
+                Label("Share a photo", systemImage: "photo")
             }
+            Button {
+                ar.photoKit { image, prompt in
+                    UIPasteboard.general.string = prompt
+                    if let image { shareItem = ShareItem(items: [image, prompt]) }
+                }
+            } label: { Label("Make it a photo (copy prompt)", systemImage: "wand.and.stars") }
         } label: {
-            MenuChip(title: title, value: design.finishes[current]?.name.components(separatedBy: " (").first?
-                .replacingOccurrences(of: " veneer", with: "") ?? current)
+            Image(systemName: "square.and.arrow.up").font(.footnote.weight(.semibold)).frame(width: 38, height: 32)
+                .foregroundStyle(Theme.onWalnut).background(Theme.walnut, in: RoundedRectangle(cornerRadius: 4))
         }
+        .accessibilityLabel("Share")
     }
 
     private func nudge(_ icon: String, _ action: @escaping () -> Void) -> some View {
@@ -214,110 +249,6 @@ struct ContentView: View {
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.rule))
         }
         .buttonStyle(.plain)
-    }
-}
-
-extension String {
-    var capitalizingFirst: String { prefix(1).uppercased() + dropFirst() }
-}
-
-/// A captioned AR photo on its way to the share sheet.
-struct ShareItem: Identifiable {
-    let id = UUID()
-    let image: UIImage
-}
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-    func makeUIViewController(context: Context) -> UIActivityViewController { UIActivityViewController(activityItems: items, applicationActivities: nil) }
-    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
-}
-
-/// The one strong button: walnut, squared, with an arrow.
-struct BigButtonLabel: View {
-    let text: String
-    var body: some View {
-        HStack {
-            Text(text).font(.body.weight(.medium)).tracking(0.3)
-            Spacer()
-            Image(systemName: "arrow.right")
-        }
-        .foregroundStyle(Theme.onWalnut)
-        .padding(.horizontal, 18).padding(.vertical, 15)
-        .background(Theme.walnut, in: RoundedRectangle(cornerRadius: 4))
-    }
-}
-
-/// One choice in "What are you building?"; builds that aren't ready yet show as coming soon.
-struct ProjectTile: View {
-    let project: ARController.Project
-    let selected: Bool
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: project.icon).font(.body).foregroundStyle(selected ? Theme.brass : .secondary).frame(width: 24)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(project.name).font(Theme.serif(16)).lineLimit(1).minimumScaleFactor(0.8)
-                    Text(project.ready ? project.room : "Coming soon")
-                        .font(.system(size: 9.5, weight: .medium)).tracking(1.1).textCase(.uppercase)
-                        .foregroundStyle(.secondary).lineLimit(1)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 10).padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .background(selected ? Theme.brass.opacity(0.14) : Color.clear, in: RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(selected ? Theme.brass : Theme.rule, lineWidth: selected ? 1.5 : 1))
-        }
-        .buttonStyle(.plain)
-        .disabled(!project.ready)
-        .opacity(project.ready ? 1 : 0.45)
-    }
-}
-
-struct MenuChip: View {
-    let title: String
-    let value: String
-    var body: some View {
-        VStack(spacing: 3) {
-            Text(title).font(.system(size: 9, weight: .medium)).tracking(1.2).textCase(.uppercase).foregroundStyle(.secondary)
-            Text(value).font(Theme.serif(15)).lineLimit(1).minimumScaleFactor(0.75).foregroundStyle(.primary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 7).padding(.horizontal, 4)
-        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Theme.rule))
-    }
-}
-
-struct Pill: View {
-    let text: String
-    let bold: Bool
-    var body: some View {
-        Text(text)
-            .font(bold ? .system(size: 12, weight: .semibold) : .footnote)
-            .tracking(bold ? 1.2 : 0)
-            .textCase(bold ? .uppercase : nil)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 14).padding(.vertical, 9)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))
-    }
-}
-
-/// The panel at the bottom of the screen: frosted, warmed with paper, hairline edge.
-struct Panel<Content: View>: View {
-    @ViewBuilder var content: Content
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) { content }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14).fill(.regularMaterial)
-                    RoundedRectangle(cornerRadius: 14).fill(Theme.paper.opacity(0.55))
-                }
-            }
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.rule))
     }
 }
 

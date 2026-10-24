@@ -14,6 +14,8 @@
   .k { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
   #hover { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,.72); color: #fff; padding: 4px 10px; border-radius: 6px; display: none; }
   #hint { position: absolute; bottom: 12px; right: 12px; color: #777; font-size: 12px; }
+  #photo { margin-top: 10px; width: 100%; padding: 8px 10px; font: inherit; font-weight: 600; color: #f1e6d6; background: #3e2a1e; border: 0; border-radius: 4px; cursor: pointer; }
+  #photoNote { font-size: 12px; color: #555; margin-top: 6px; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -33,6 +35,8 @@
   <label><input type="checkbox" id="fronts" checked> Show fronts</label>
   <label><input type="checkbox" id="top" checked> Show countertop + sink</label>
   <label><input type="checkbox" id="room" checked> Wall + floor</label>
+  <button id="photo" title="Downloads a clean render and copies a prompt: paste both into any image AI">Make it a photo</button>
+  <div id="photoNote"></div>
 </div>
 <div id="hover"></div>
 <div id="hint">Drag to orbit &middot; scroll to zoom &middot; right-drag to pan</div>
@@ -356,6 +360,34 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 });
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+// "Make it a photo": the render as a PNG (UI hidden) and a prompt that describes the piece exactly,
+// so any image AI keeps the design and only adds the room, light and styling.
+function photoPrompt() {
+  const fin = (id) => (DATA.finishes[id]?.name ?? id).split(' (')[0].toLowerCase();
+  const count = (r) => DATA.parts.filter((p) => p.role === r).length;
+  const facts = [DATA.name, `${DATA.style} style`, `${fin(choice.fronts)} fronts`, `${fin(choice.carcass)} cabinet`];
+  if (DATA.parts.some((p) => p.role === 'top')) facts.push(`${fin(choice.top)} top`);
+  facts.push(DATA.parts.some((p) => p.banded) ? 'clean veneer edgebanding on every visible edge' : 'exposed Baltic birch plywood edges');
+  if (count('drawerFront')) facts.push(`${count('drawerFront')} drawers`);
+  if (count('door')) facts.push(`${count('door')} doors`);
+  if ((DATA.fixtures ?? []).some((f) => f.kind === 'pull')) facts.push('slim black bar pulls near the top of each front');
+  if ((DATA.fixtures ?? []).some((f) => f.kind === 'leg' && f.leg?.finish)) facts.push('tapered, slightly splayed solid wood legs with brass tips');
+  return `Editorial interior photograph for a European design magazine. Use the cabinet in the reference image exactly as designed: ${facts.join(', ')}. ` +
+    'Same proportions, same drawer and door count, same pulls and legs. Place it against the wall of a calm, sunlit room that suits it, ' +
+    'with soft natural light, gentle shadows and a few simple styling objects. Medium format, natural color, quiet luxury. No text, no logos, no people.';
+}
+$('photo').addEventListener('click', async () => {
+  const ui = $('ui'), hint = $('hint');
+  ui.style.visibility = hint.style.visibility = 'hidden';
+  renderer.render(scene, camera);
+  const url = renderer.domElement.toDataURL('image/png');
+  ui.style.visibility = hint.style.visibility = '';
+  const a = document.createElement('a');
+  a.href = url; a.download = `${DATA.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-render.png`; a.click();
+  try { await navigator.clipboard.writeText(photoPrompt()); $('photoNote').textContent = 'Render downloaded, prompt copied. Paste both into your favourite image AI.'; }
+  catch { $('photoNote').textContent = photoPrompt(); }
+});
+window.__photoPrompt = photoPrompt;
 window.__view = (pos, target) => { camera.position.set(...pos); controls.target.set(...target); controls.update(); };
 window.__setFinish = (key, id) => { choice[key] = id; $('f-' + key).value = id; applyFinishes(); };
 window.__ready = true;
