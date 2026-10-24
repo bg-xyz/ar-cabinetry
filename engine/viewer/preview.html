@@ -14,6 +14,7 @@
   .k { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
   #hover { position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,.72); color: #fff; padding: 4px 10px; border-radius: 6px; display: none; }
   #hint { position: absolute; bottom: 12px; right: 12px; color: #777; font-size: 12px; }
+  #inroom { margin-top: 10px; width: 100%; padding: 8px 10px; font: inherit; font-weight: 600; color: #1c1915; background: #c9a25e; border: 0; border-radius: 4px; cursor: pointer; }
   #photo { margin-top: 10px; width: 100%; padding: 8px 10px; font: inherit; font-weight: 600; color: #f1e6d6; background: #3e2a1e; border: 0; border-radius: 4px; cursor: pointer; }
   #photoNote { font-size: 12px; color: #555; margin-top: 6px; }
 </style>
@@ -35,6 +36,7 @@
   <label><input type="checkbox" id="fronts" checked> Show fronts</label>
   <label><input type="checkbox" id="top" checked> Show countertop + sink</label>
   <label><input type="checkbox" id="room" checked> Wall + floor</label>
+  <button id="inroom" hidden title="Opens Apple AR Quick Look: the piece life-size in your room">View in your room</button>
   <button id="photo" title="Downloads a clean render and copies a prompt: paste both into any image AI">Make it a photo</button>
   <div id="photoNote"></div>
 </div>
@@ -45,6 +47,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
 
 const DATA = /*PARTS_JSON*/null;
 const $ = (id) => document.getElementById(id);
@@ -388,6 +391,70 @@ $('photo').addEventListener('click', async () => {
   catch { $('photoNote').textContent = photoPrompt(); }
 });
 window.__photoPrompt = photoPrompt;
+
+// "View in your room" (iPhone / iPad Safari, no app): the piece as USDZ, made right here in the browser,
+// opened in AR Quick Look. One material per mesh (the face veneer), metres, centred on its footprint.
+// phone-sized copies of the textures (AR Quick Look downloads the whole file before it shows anything)
+const smallTex = new Map();
+function small(t, size = 512) {
+  if (!t?.image) return null;
+  if (!smallTex.has(t.uuid)) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    c.getContext('2d').drawImage(t.image, 0, 0, size, size);
+    const s = new THREE.CanvasTexture(c);
+    s.wrapS = s.wrapT = THREE.RepeatWrapping;
+    s.colorSpace = t.colorSpace;
+    smallTex.set(t.uuid, s);
+  }
+  return smallTex.get(t.uuid);
+}
+const arMats = new Map();
+function arMaterial(m) {
+  if (!arMats.has(m.uuid)) {
+    const a = new THREE.MeshStandardMaterial({ color: m.color, roughness: m.roughness ?? 0.6, metalness: m.metalness ?? 0 });
+    a.map = small(m.map);
+    // colour only: normal maps barely show at room scale and double the download
+    arMats.set(m.uuid, a);
+  }
+  return arMats.get(m.uuid);
+}
+
+async function usdz() {
+  const root = new THREE.Group();
+  root.scale.setScalar(0.001);
+  root.position.set(-ov.width / 2000, 0, -ov.depth / 2000);
+  scene.updateMatrixWorld(true);
+  const inv = group.matrixWorld.clone().invert();
+  group.traverse((o) => {
+    if (!o.isMesh || !o.visible) return;
+    let mat = Array.isArray(o.material) ? o.material[(o.userData?.thicknessAxis ?? o.parent?.userData?.thicknessAxis ?? 1) * 2] ?? o.material[0] : o.material;
+    mat = mat.isMeshStandardMaterial ? arMaterial(mat) : new THREE.MeshStandardMaterial({ color: mat.color ?? 0x888888 });
+    const m = new THREE.Mesh(o.geometry, mat);
+    m.matrix.copy(group.matrix).multiply(inv.clone().multiply(o.matrixWorld));
+    m.matrix.decompose(m.position, m.quaternion, m.scale);
+    root.add(m);
+  });
+  const exporter = new USDZExporter();
+  const opts = { quickLookCompatible: true, maxTextureSize: 512 };
+  const data = exporter.parseAsync ? await exporter.parseAsync(root, opts) : await exporter.parse(root, opts);
+  return new Blob([data], { type: 'model/vnd.usdz+zip' });
+}
+const arLink = document.createElement('a');
+if (arLink.relList?.supports?.('ar')) {
+  $('inroom').hidden = false;
+  $('inroom').addEventListener('click', async () => {
+    $('inroom').textContent = 'Preparing…';
+    try {
+      arLink.rel = 'ar';
+      arLink.href = URL.createObjectURL(await usdz());
+      arLink.download = `${DATA.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.usdz`;
+      arLink.appendChild(document.createElement('img'));   // AR Quick Look wants an <img> inside the link
+      arLink.click();
+    } finally { $('inroom').textContent = 'View in your room'; }
+  });
+}
+window.__usdz = usdz;
 window.__view = (pos, target) => { camera.position.set(...pos); controls.target.set(...target); controls.update(); };
 window.__setFinish = (key, id) => { choice[key] = id; $('f-' + key).value = id; applyFinishes(); };
 window.__ready = true;

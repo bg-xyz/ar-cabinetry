@@ -59,7 +59,7 @@ struct RollPicker: View {
             .scrollPosition(id: $position, anchor: .center)
         }
         .frame(height: large ? 92 : 56)
-        .sensoryFeedback(.selection, trigger: position)
+        .selectionTick(position)
         .onAppear { position = selected }
         .onChange(of: selected) { _, new in if position != new { withAnimation(.snappy) { position = new } } }
         // commit once the strip settles, not for every card that flies past
@@ -156,4 +156,20 @@ struct ShareSheet: UIViewControllerRepresentable {
 
 extension String {
     var capitalizingFirst: String { prefix(1).uppercased() + dropFirst() }
+}
+
+/// The selection haptic where the platform has one (iPhone; Vision Pro from visionOS 26).
+struct SelectionTick<T: Equatable>: ViewModifier {
+    let trigger: T
+    func body(content: Content) -> some View {
+        #if os(visionOS)
+        if #available(visionOS 26.0, *) { content.sensoryFeedback(.selection, trigger: trigger) } else { content }
+        #else
+        content.sensoryFeedback(.selection, trigger: trigger)
+        #endif
+    }
+}
+
+extension View {
+    func selectionTick<T: Equatable>(_ trigger: T) -> some View { modifier(SelectionTick(trigger: trigger)) }
 }

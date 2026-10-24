@@ -24,8 +24,8 @@ designs real (buildable, priced), which is what turns "cool AR toy" into "I'm ac
 - **Site**: slow-motion hero film, banded-edge photography, scroll-snap demo slider, "Make it a photo" in the 3D viewer.
 
 ## Next, in order
-1. **"View in your room" on the website (any iPhone, no app):** export the 3D model to USDZ in the browser (three.js
-   USDZExporter) and open AR Quick Look. Every shared link becomes an AR experience. Biggest reach for the effort.
+1. ~~"View in your room" on the website~~ **Done (2026-10-24, untested on a phone):** the 3D viewer makes a USDZ in the
+   browser (three.js USDZExporter, 512px colour maps, ~4 MB) and opens AR Quick Look on iPhone/iPad Safari.
 2. **Share links that open the design**: plywise.xyz/d/#<spec>. The spec is tiny JSON, so it fits in the URL fragment
    (no server, no personal data). The page shows the 3D model, the price, "View in your room", "Get the app".
 3. **Assembly film**: a 6-second animation of the piece building itself (sides, back sliding into its dado, drawers

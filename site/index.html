@@ -350,6 +350,7 @@
       <div class="poster" id="poster" style="background-image:url(img/demo-poster.jpg)"><span>Load the 3D model · 3 MB</span></div>
     </div>
     <div class="picker" id="picker"></div>
+    <p style="margin:14px 0 0"><a class="label" id="fullscreen" href="demo/dresser-60-walnut.html" target="_blank" rel="noopener">Open full screen · on iPhone, view it in your room →</a></p>
   </div>
 </section>
 
@@ -429,6 +430,7 @@
   let current = DEMOS[0][0];
   function show(id) {
     current = id;
+    document.getElementById('fullscreen').href = `demo/${id}.html`;
     for (const b of picker.children) b.classList.toggle('on', b.dataset.id === id);
     if (document.getElementById('poster')) return; // not loaded yet: just remember the choice
     box.innerHTML = `<iframe src="demo/${id}.html" title="3D cabinet preview" loading="lazy" allow="fullscreen"></iframe>`;
