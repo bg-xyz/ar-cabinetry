@@ -30,3 +30,11 @@ The layer name *is* the instruction: `D13` = 13mm deep, `p` = decimal point. New
 - Measure the plywood and update `catalog/materials.json`, then re-run the job.
 - Cut a **hinge test**: one door and one side offcut. Mount a hinge and check the overlay and gap before cutting the whole vanity.
 - Pockets that run off a part edge are drawn past the edge on purpose (into the waste between parts) so the cutter leaves clean ends.
+
+## Before the first cut: `fit-test.dxf`
+
+Every job package has a fit-test coupon: one strip per jointed board, six slots each from +0.1 to +0.6mm over the board's catalog thickness, labelled. Cut it on an offcut of the carcass sheet (same toolpath template: `POCKET_*` then `CUT_OUTSIDE`). Slide a piece of each real sheet into its strip; the slot it takes with light hand pressure is the fit. Wood isn't metal: sheets vary, glue swells the joint, parts get sanded, so a clean slip fit beats a tight one. Put the number in the design's style (`dadoFit`, `grooveFit`) or fix the measured thickness in `catalog/materials.json`, and re-export.
+
+## Grain-matched parts
+
+With grain matching on (the default), each face's fronts and each level of drawer bottoms sit next to each other on the sheet in the order they hang. Keep them in sequence through sanding and finishing; the job sheet's Grain section lists the matched groups.

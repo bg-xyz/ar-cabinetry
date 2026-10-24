@@ -32,6 +32,13 @@ final class ARController: ObservableObject {
         .init(id: "kitchen", name: "Kitchen", noun: "kitchen", room: "Kitchen", icon: "refrigerator.fill", ready: false),
     ]
 
+    /// Grain matching: fronts cut in sequence from one panel so the veneer flows across the face.
+    static let grains: [(name: String, id: String, hint: String)] = [
+        ("Across", "across", "Grain flows sideways across every front"),
+        ("Waterfall", "waterfall", "Vertical grain flowing down each stack"),
+        ("Off", "off", "Best yield, no matching"),
+    ]
+
     static let styles: [(name: String, preset: String)] = [
         ("Classic Euro", "classic-euro"), ("Milan flush", "milan-flush"), ("Recessed inset", "recessed-inset"), ("Ply inset", "ply-inset"),
     ]
@@ -49,6 +56,7 @@ final class ARController: ObservableObject {
     }
     @Published var stylePreset = "classic-euro"
     @Published var widthChoice: Double?   // mm; nil = best fit
+    @Published var grainChoice: String?   // nil = the planner's default for the build
 
     var current: Project { Self.projects.first { $0.id == project } ?? Self.projects[0] }
 
@@ -269,7 +277,7 @@ final class ARController: ObservableObject {
         let (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room)
         let input = PlanInput(project: project, wallLength: Double(f.length * 1000), wallHeight: Double(f.height * 1000),
                               obstacles: obstacles, sinkAt: project == "vanity" ? sinkAt : nil,
-                              width: widthChoice, style: ["preset": stylePreset])
+                              width: widthChoice, style: style)
         do {
             let (p, d) = try Engine.shared.plan(input)
             plan = p
@@ -319,6 +327,17 @@ final class ARController: ObservableObject {
 
     func setStyle(_ preset: String) {
         stylePreset = preset
+        replan()
+    }
+
+    private var style: [String: String] {
+        var s = ["preset": stylePreset]
+        if let g = grainChoice { s["grainMatch"] = g }
+        return s
+    }
+
+    func setGrain(_ id: String) {
+        grainChoice = id
         replan()
     }
 

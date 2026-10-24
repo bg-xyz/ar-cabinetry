@@ -40,6 +40,7 @@ struct Design: Decodable, Identifiable {
         let box: Box
         let finish: String
         let grainAxis: Int?
+        let texSeed: String?
         let thicknessAxis: Int
         let plies: Int
         let cuts: [Cut]

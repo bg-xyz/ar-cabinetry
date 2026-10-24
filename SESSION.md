@@ -164,3 +164,19 @@ Blake has an **iPhone 12 Pro** (LiDAR, RoomPlan supported). He OK'd the placehol
 - New sample specs (site demos): `bookcase-108-builtin` (white oak), `dresser-60-walnut` (recessed inset).
 
 **Ideas for later:** bookcases flanking a window with a window seat between; closets (hanging rods = open zone + rod fixture, 24" deep); kitchens last.
+
+---
+
+## 2026-10-23 night: grain matching, joint fit (Blake's shop tips)
+
+**Blake:** grain matching ("waterfall") across faces and drawers, and drawer bottoms in sequence per level, should be the default but optional (eco / yield). Also: dados are commonly cut a bit loose (~0.02"); it's wood, not aircraft parts.
+
+**Done:**
+- `style.grainMatch`: `across` (default; every front horizontal grain, the face flows sideways), `waterfall` (vertical grain flowing down each stack; default for bookcases), `off` (doors vertical / drawers horizontal, free nesting).
+- `src/match.ts`: each face and each level of drawer bottoms becomes one rigid block on the sheet, laid out as it hangs (fronts mirrored, since they're machined from the back; bottoms turned 180 degrees, same face up). Gaps open to one cutter. Too wide for one sheet -> runs of whole cabinets.
+- Nester: tries 5 part orders x {standard, long} sheets per material and keeps the least plywood (needed so "off" really is the best yield).
+- AR + preview: matched parts share one veneer offset (`texSeed`), so the grain visibly flows across the face; unmatched parts get random offsets.
+- App: **Grain** menu (Across / Waterfall / Off); notes say the cost, e.g. "Grain-matched fronts: about 6.3 sheets of plywood (5.6 with matching off)".
+- **Joint fit is a shop setting**: `dadoFit` 0.4mm (0.016"), `grooveFit` 0.5mm (0.020"), `depthFit` 0.5mm (captured panel ends stop short of the dado bottom for glue). Was 0.2/0.3 (metal thinking). Research: forum practice is +0.005-0.010", some to 0.015-0.02"; everyone says measure the sheet and test-cut.
+- **`fit-test.dxf`** in every job package (coupon strips, +0.1 to +0.6mm slots, labelled) + a "Joint fit" line in the job sheet's checklist + VCARVE.md section.
+- Tests: 121 pass (`test/match.test.ts`: dresser face on one panel and mirrored, waterfall stacks, bottoms side by side one cutter apart, wide faces split by cabinet, matching off never uses more plywood).

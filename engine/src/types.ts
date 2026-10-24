@@ -37,6 +37,7 @@ export interface Part {
   grain: Axis | null;   // world axis the face grain runs along
   exposed: boolean;     // visible when the piece is installed (grain + edge quality matter)
   ops: WorldOp[];
+  match?: string;       // grain-match group: parts cut side by side from one panel, in sequence
 }
 
 // ---- flattened (CNC) form -------------------------------------------------
@@ -56,6 +57,7 @@ export interface FlatPart {
   width: number;
   grainLocked: boolean; // may not be rotated 90 degrees when nesting
   ops: FlatOp[];
+  match?: string;
 }
 
 // ---- catalog ---------------------------------------------------------------
@@ -153,12 +155,19 @@ export interface Catalog {
 
 export type Mount = 'overlay' | 'inset';
 export type Grip = 'pull' | 'groove' | 'push';
+// across: every front's grain runs horizontally and flows from front to front across the face.
+// waterfall: vertical grain that flows down through each stack of drawers and doors.
+// off: doors vertical, drawers horizontal, every part nested on its own for the best yield.
+// Matched designs also cut each level of drawer bottoms in sequence, so the grain runs across
+// the drawers when you open them side by side.
+export type GrainMatch = 'across' | 'waterfall' | 'off';
 
 export interface Style {
   name: string;
   mount: Mount;
   insetSetback: number;   // inset only: how far fronts sit back from the carcass edge
   grip: Grip;
+  grainMatch: GrainMatch;
   gap: number;            // between fronts
   endReveal: number;      // overlay: front edge to carcass outside edge
   topReveal: number;
@@ -173,6 +182,11 @@ export interface Style {
   pull: string;
   dadoDepth: number;
   grooveDepth: number;
+  // Joint fit (shop settings): it's wood, glue swells it and sheets vary, so joints are cut a
+  // little loose. Tune them with the fit-test coupon in every job package.
+  dadoFit: number;        // dados + rabbets this much wider than the measured board
+  grooveFit: number;      // back + drawer-bottom grooves this much wider than the panel
+  depthFit: number;       // captured panel ends stop this far short of the dado bottom (glue room)
   stretcherWidth: number;
   carcassFinish: string;  // finishes.json ids
   frontFinish: string;

@@ -138,6 +138,12 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
   );
   if (spec.cabinets.length > 1) hardware.push({ item: 'Cabinet connector bolts (joining boxes)', qty: (spec.cabinets.length - 1) * 4 });
 
+  // grain matching: the whole face is one group; drawer bottoms group by level (same height = side by side)
+  if (style.grainMatch !== 'off') for (const p of parts) {
+    if (p.role === 'door' || p.role === 'drawerFront') p.match = 'face';
+    else if (p.role === 'drawerBottom') p.match = `drawer bottoms @${Math.round(p.box.min[1])}`;
+  }
+
   return {
     spec, style, parts, hardware: mergeHardware(hardware), fixtures, warnings,
     overall: { width: totalW + (panelL ? epT : 0) + (panelR ? epT : 0), height: H + topT, depth: topFrontZ, elevation: elev },

@@ -41,7 +41,7 @@ for (const [name, spec] of all) {
     const dir = mkdtempSync(join(tmpdir(), 'cab-'));
     try {
       const files = writeJob(join(dir, 'job'), d, buildJob(d, cat, o), cat, o, '/*PARTS_JSON*/null');
-      for (const f of ['parts.json', 'cutlist.csv', 'jobsheet.html', 'preview.html']) assert.ok(files.includes(f), f);
+      for (const f of ['parts.json', 'cutlist.csv', 'jobsheet.html', 'preview.html', 'fit-test.dxf']) assert.ok(files.includes(f), f);
       assert.ok(files.some((f) => f.endsWith('.dxf')));
       assert.ok(!readFileSync(join(dir, 'job', 'jobsheet.html'), 'utf8').includes('undefined'));
     } finally { rmSync(dir, { recursive: true }); }
@@ -108,4 +108,17 @@ test('drawers under a sink become U-drawers that clear the drain', () => {
     } else assert.ok(!(hitsX && hitsZ), `${p.id} sits on the drain line`);
   }
   assert.ok(!d.warnings.some((w) => w.includes('drain')));
+});
+
+test('joint fit is a shop setting: dados open up, panel ends stop short for glue', () => {
+  const spec: RunSpec = { name: 'fit', mounting: 'wall-hung', elevation: 300, style: { dadoFit: 0.6, depthFit: 0.8 },
+    cabinets: [{ id: 'A', width: 600, height: 700, depth: 500, zones: [{ type: 'doors', size: 'fill', count: 2 }] }] };
+  const d = designRun(spec, cat);
+  const side = d.parts.find((p) => p.id === 'A-side-L')!;
+  const rabbet = side.ops.find((o) => o.kind === 'pocket' && o.note === 'bottom rabbet');
+  assert.ok(rabbet && rabbet.kind === 'pocket');
+  assert.ok(Math.abs(Math.abs(rabbet.to[1] - rabbet.from[1]) - (18 + 0.6)) < 1e-6, 'rabbet = board + dadoFit');
+  const bottom = d.parts.find((p) => p.id === 'A-bottom')!;
+  assert.ok(Math.abs(bottom.box.size[0] - (600 - 2 * 18 + 2 * 6 - 2 * 0.8)) < 1e-6, 'bottom stops depthFit short each end');
+  assert.deepEqual(collisions(d), []);
 });

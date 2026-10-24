@@ -37,6 +37,7 @@ export function model3d(design: Design, cat: Catalog) {
       id: p.id, name: p.name, role: p.role, material: p.material, box: p.box, exposed: p.exposed,
       finish: finishFor(p, design.style),
       grainAxis: p.grain,
+      texSeed: p.match ?? p.id,   // matched parts share one veneer offset, so the grain runs on across them
       thicknessAxis: ({ x: 0, y: 1, z: 2 } as const)[p.faceA[1] as 'x' | 'y' | 'z'],
       plies: lookup(cat.materials, p.material, 'material').plies ?? 7,
       cuts: cutBoxes(p),

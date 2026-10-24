@@ -11,7 +11,7 @@ from ezdxf.addons.drawing import matplotlib as dmpl
 
 job = pathlib.Path(sys.argv[1])
 ok = True
-for f in sorted((job / "sheets").glob("*.dxf")):
+for f in sorted((job / "sheets").glob("*.dxf")) + sorted(job.glob("*.dxf")):
     doc, auditor = recover.readfile(f)
     counts = Counter(e.dxf.layer for e in doc.modelspace())
     errs = len(auditor.errors)

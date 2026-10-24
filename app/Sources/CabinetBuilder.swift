@@ -224,7 +224,7 @@ enum CabinetBuilder {
         let across = inPlane.first { $0 != grain } ?? inPlane[1]
         let plyTile = plyPairs * 2 * size[n] / Double(max(p.plies, 1))
         var h: UInt32 = 0
-        for c in p.id.unicodeScalars { h = h &* 31 &+ c.value }   // stable per-part texture offset
+        for c in (p.texSeed ?? p.id).unicodeScalars { h = h &* 31 &+ c.value }   // stable offset, shared by a grain-matched group
         let ou = Double(h % 997) / 997, ov = Double((h >> 10) % 991) / 991
         let minN = p.box.min[n]
         mesh.box(piece.0, piece.1, uv: { w, m in

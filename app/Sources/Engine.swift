@@ -30,6 +30,9 @@ struct PlanResult: Decodable {
     let widthOptions: [Double]
     let notes: [String]
     let name: String
+    let grainMatch: String       // across, waterfall, off
+    let sheets: Double           // plywood, in 4x8 sheet equivalents
+    let sheetsUnmatched: Double  // the same design with grain matching off
 }
 
 enum EngineError: LocalizedError {

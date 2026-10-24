@@ -154,7 +154,7 @@ export function planVanity(input: PlanInput): Plan {
   const spec: RunSpec = {
     name: `${Math.round(width / IN)}" ${sinks === 2 ? 'double' : 'single'} vanity`,
     units: 'mm',
-    style: input.style ?? { preset: 'classic-euro' },
+    style: { preset: 'classic-euro', grainMatch: 'across', ...input.style },
     mounting: input.mounting ?? 'wall-hung',
     elevation: 10.25 * IN,
     cabinets,
@@ -233,7 +233,7 @@ export function planBookcase(input: PlanInput): Plan {
   const spec: RunSpec = {
     name: `${Math.round(width / IN)}" built-in bookcase`,
     units: 'mm',
-    style: input.style ?? { preset: 'classic-euro' },
+    style: { preset: 'classic-euro', grainMatch: 'waterfall', ...input.style }, // tall built-ins: vertical grain
     mounting: 'toe-kick',
     elevation: 0,
     kickHeight: KICK,
@@ -295,7 +295,7 @@ export function planFurniture(input: PlanInput, project: 'console' | 'dresser'):
   const spec: RunSpec = {
     name: `${Math.round(width / IN)}" ${f.name}`,
     units: 'mm',
-    style: input.style ?? { preset: 'classic-euro' },
+    style: { preset: 'classic-euro', grainMatch: 'across', ...input.style },
     mounting: 'legs',
     elevation: f.legs,
     cabinets,

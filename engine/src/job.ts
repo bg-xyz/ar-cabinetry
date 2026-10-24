@@ -2,6 +2,7 @@
 //
 //   parts.json        3D parts (what the AR app and preview draw)
 //   sheets/*.dxf      layered CNC files, one per sheet
+//   fit-test.dxf      joint-fit coupon: cut it first, tune dadoFit / grooveFit
 //   cutlist.csv       every part, size, sheet
 //   jobsheet.html     printable: hardware, cut list, sheet maps, warnings, layer legend
 //   preview.html      spin-around 3D view (three.js)
@@ -9,10 +10,11 @@
 import { mkdirSync, writeFileSync, rmSync, existsSync, copyFileSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { flatten } from './flatten.ts';
-import { nest, placeOp, sheetYield } from './nest.ts';
+import { placeOp, sheetYield } from './nest.ts';
+import { cutSheets } from './sheets.ts';
 import type { Sheet } from './nest.ts';
 import { sheetDxf, layerFor } from './dxf.ts';
+import { fitTest } from './fittest.ts';
 import { lookup } from './catalog.ts';
 import { fmtBoth } from './units.ts';
 import { model3d, TEXTURE_MAPS } from './model3d.ts';
@@ -33,16 +35,14 @@ export interface Quote {
   cnc: { sheets: number; cutMeters: number; holes: number; pockets: number; tools: string[] };
 }
 
-export interface Job { flat: FlatPart[]; sheets: Sheet[]; warnings: string[]; layers: string[]; quote: Quote }
+export interface Job { flat: FlatPart[]; sheets: Sheet[]; warnings: string[]; matched: string[]; layers: string[]; quote: Quote }
 
 export function buildJob(design: Design, cat: Catalog, o: JobOptions): Job {
   const warnings = [...design.warnings];
-  const overcut = o.toolDia / 2 + 1;
-  const flat = design.parts.map((p) => flatten(p, cat, overcut));
-  const sheets = nest(flat, cat, { margin: 15, spacing: o.toolDia + 6 }, warnings);
+  const { flat, sheets, matched } = cutSheets(design, cat, o.toolDia, warnings);
   const layers = new Set<string>();
   for (const sh of sheets) for (const l of sheetDxf(sh, o.units).layers) layers.add(l);
-  return { flat, sheets, warnings, layers: [...layers].sort(), quote: quote(design, sheets, cat, [...layers]) };
+  return { flat, sheets, warnings, matched, layers: [...layers].sort(), quote: quote(design, sheets, cat, [...layers]) };
 }
 
 // What a shop needs to price the job: sheets, hardware, and how much machining there is.
@@ -122,6 +122,9 @@ export function writeJob(dir: string, design: Design, job: Job, cat: Catalog, o:
     for (const pl of sh.placements) sheetOf.set(pl.part.id, `${i + 1}`);
   });
 
+  const ft = fitTest(design, cat);
+  put('fit-test.dxf', sheetDxf(ft.sheet, o.units, ft.labels).dxf);
+
   const rows = job.flat.map((p) => [p.id, p.name, lookup(cat.materials, p.material, 'material').name, p.thickness.toFixed(1),
     p.length.toFixed(1), p.width.toFixed(1), (p.length / 25.4).toFixed(3), (p.width / 25.4).toFixed(3),
     p.grainLocked ? 'yes' : 'no', sheetOf.get(p.id) ?? '']);
@@ -176,6 +179,7 @@ function jobSheet(design: Design, job: Job, cat: Catalog, o: JobOptions, rows: s
     const mm = cat.materials[m];
     if (mm.verify) verify.add(`<b>${esc(mm.name)}</b> (${mm.thickness}mm): ${esc(mm.verify)}`);
   }
+  verify.add(`<b>Joint fit</b>: cut <code>fit-test.dxf</code> first, on an offcut. Slide a piece of each sheet into its strip: the slot it takes with light hand pressure is your fit (now dados +${st.dadoFit}mm, grooves +${st.grooveFit}mm, panel ends ${st.depthFit}mm short of the dado bottom for glue). Plywood varies sheet to sheet; glue swells the joint, so err loose.`);
   const layerHelp: Record<string, string> = {
     SHEET: 'sheet outline, reference only', LABELS: 'part ids, reference only',
     CUT_OUTSIDE: 'profile OUTSIDE, through, with tabs; run LAST', CUT_INSIDE: 'profile INSIDE, through (sink, faucet, plumbing holes)',
@@ -205,6 +209,9 @@ svg.sheet text{font-size:8px;fill:#333}code{background:#f2f2f2;padding:1px 4px;b
 Overall ${fmtBoth(ov.width)} W &times; ${fmtBoth(ov.height)} H &times; ${fmtBoth(ov.depth)} D &middot; hung with the carcass bottom ${fmtBoth(ov.elevation)} above the floor</div>
 <div>CNC files: ${job.sheets.length} sheet(s), units <b>${o.units}</b>, laid out for a ${o.toolDia}mm cutter. Generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')}.</div>
 <h2>Job summary</h2>${summary(job.quote)}
+<h2>Grain</h2><p>${st.grainMatch === 'off' ? 'Not matched: every part nested on its own for the best yield.'
+  : `Matched ${st.grainMatch === 'waterfall' ? '(waterfall: vertical grain flowing down each stack)' : '(across: horizontal grain flowing from front to front)'}. Matched parts sit side by side on the sheet in the order they hang; keep them in sequence and don't swap them.`}</p>
+${job.matched.length ? `<ul>${job.matched.map((m) => `<li>${esc(m)}</li>`).join('')}</ul>` : ''}
 ${job.warnings.length ? `<h2>Warnings</h2><div class="warn"><ul>${job.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
 <h2>Check before cutting</h2><div class="verify"><ul>${[...verify].map((v) => `<li>${v}</li>`).join('')}</ul></div>
 <h2>Hardware</h2><table><tr><th>Qty</th><th>Item</th><th>Est.</th><th>Buy</th></tr>

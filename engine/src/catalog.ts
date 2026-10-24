@@ -12,6 +12,7 @@ const base: Style = {
   mount: 'overlay',
   insetSetback: 0,
   grip: 'pull',
+  grainMatch: 'across',
   gap: 3,
   endReveal: 1.5,
   topReveal: 3,
@@ -26,6 +27,9 @@ const base: Style = {
   pull: 'bar-128',
   dadoDepth: 6,
   grooveDepth: 6,
+  dadoFit: 0.4,    // 0.016"
+  grooveFit: 0.5,  // 0.020"
+  depthFit: 0.5,
   stretcherWidth: 100,
   carcassFinish: 'birch',
   frontFinish: 'birch',

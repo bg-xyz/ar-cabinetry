@@ -149,7 +149,7 @@ function partGeometry(p, piece) {
     : (p.box.size[inPlane[0]] >= p.box.size[inPlane[1]] ? inPlane[0] : inPlane[1]);
   const across = inPlane.find((a) => a !== grain);
   const plyTile = PLY_PAIRS * 2 * p.box.size[n] / p.plies;
-  let h = 0; for (const c of p.id) h = (h * 31 + c.charCodeAt(0)) >>> 0;   // stable per-part offset
+  let h = 0; for (const c of p.texSeed ?? p.id) h = (h * 31 + c.charCodeAt(0)) >>> 0;   // stable offset, shared by a grain-matched group
   const ou = (h % 997) / 997, ovv = ((h >> 10) % 991) / 991;
   for (let f = 0; f < 6; f++) {
     const m = f >> 1;

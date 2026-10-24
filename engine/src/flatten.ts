@@ -16,20 +16,25 @@ function faceAxis(face: Face): { n: Axis; sign: 1 | -1 } {
 
 const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 
-export function flatten(part: Part, cat: Catalog, overcut: number): FlatPart {
-  const { min, size } = part.box;
+/** How a part lies on the CNC: world axis along its length (u), across it (v), and whether u runs backwards. */
+export function flatFrame(part: Part): { n: Axis; sign: 1 | -1; u: Axis; v: Axis; uSign: number } {
+  const { size } = part.box;
   const { n, sign } = faceAxis(part.faceA);
-  const plane = sign > 0 ? min[n] + size[n] : min[n];
   const inPlane = ([0, 1, 2] as Axis[]).filter((a) => a !== n);
   const u: Axis = part.grain !== null && part.grain !== n
     ? part.grain
     : (size[inPlane[0]] >= size[inPlane[1]] ? inPlane[0] : inPlane[1]);
   const v = inPlane.find((a) => a !== u) as Axis;
-
   // Look at face A from outside (view direction -n): right = f x up.
   const f: Vec3 = [0, 0, 0]; f[n] = -sign;
   const up: Vec3 = [0, 0, 0]; up[v] = 1;
-  const uSign = cross(f, up)[u];
+  return { n, sign, u, v, uSign: cross(f, up)[u] };
+}
+
+export function flatten(part: Part, cat: Catalog, overcut: number): FlatPart {
+  const { min, size } = part.box;
+  const { n, sign, u, v, uSign } = flatFrame(part);
+  const plane = sign > 0 ? min[n] + size[n] : min[n];
   const U = (p: Vec3) => (uSign > 0 ? p[u] - min[u] : min[u] + size[u] - p[u]);
   const V = (p: Vec3) => p[v] - min[v];
   const length = size[u], width = size[v], thickness = size[n];
@@ -76,6 +81,6 @@ export function flatten(part: Part, cat: Catalog, overcut: number): FlatPart {
 
   return {
     id: part.id, name: part.name, material: part.material, thickness,
-    length, width, grainLocked: part.exposed && part.grain !== null, ops,
+    length, width, grainLocked: part.exposed && part.grain !== null, ops, match: part.match,
   };
 }

@@ -32,7 +32,7 @@ export function layerFor(op: FlatOp): string {
 const COLORS: Record<string, number> = { SHEET: 8, LABELS: 3, CUT_OUTSIDE: 7, CUT_INSIDE: 1 };
 const colorFor = (layer: string) => COLORS[layer] ?? (layer.startsWith('DRILL') ? 5 : 4);
 
-export function sheetDxf(sheet: Sheet, units: 'mm' | 'in'): { dxf: string; layers: string[] } {
+export function sheetDxf(sheet: Sheet, units: 'mm' | 'in', labels: { x: number; y: number; h: number; s: string }[] = []): { dxf: string; layers: string[] } {
   const k = units === 'in' ? 1 / 25.4 : 1;
   const f = (v: number) => (v * k).toFixed(4);
   const ents: string[] = [];
@@ -63,6 +63,7 @@ export function sheetDxf(sheet: Sheet, units: 'mm' | 'in'): { dxf: string; layer
     }
     text(pl.x + 8, pl.y + 8, Math.min(18, pl.h / 4), pl.part.id);
   }
+  for (const l of labels) text(l.x, l.y, l.h, l.s);
 
   const layerTable = [...layers].map((l) => `0\nLAYER\n2\n${l}\n70\n0\n62\n${colorFor(l)}\n6\nCONTINUOUS`).join('\n');
   const dxf = [

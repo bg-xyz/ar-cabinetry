@@ -22,8 +22,6 @@ export interface CabinetResult {
   frontDepth: number;      // how far fronts stand proud of the carcass (overlay)
 }
 
-const FIT = 0.2;   // dado clearance for glued joints
-const GFIT = 0.3;  // groove clearance for backs and drawer bottoms
 
 const floorTo = (v: number, step: number) => Math.floor(v / step) * step;
 
@@ -34,6 +32,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
   const bt = mat(style.back).thickness;
   const ft = mat(style.fronts).thickness;
   const dd = style.dadoDepth, gd = style.grooveDepth, sw = style.stretcherWidth;
+  const FIT = style.dadoFit, GFIT = style.grooveFit, DFIT = style.depthFit;
   const bs = t; // back sits forward of the rear edge by one board: room for the hanging rail
   const inset = style.mount === 'inset';
   const s = inset ? style.insetSetback : 0;
@@ -61,8 +60,8 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
   const sideR = add({ id: id('side-R'), name: 'Right side', role: 'side', material: style.carcass,
     box: { min: [W - t, 0, 0], size: [t, H, D] }, faceA: '-x', grain: 1, exposed: true, ops: sideOps(W - t) });
 
-  const between = W - 2 * t + 2 * dd - 2 * FIT; // panels captured in the side rabbets
-  const bx = t - dd + FIT;
+  const between = W - 2 * t + 2 * dd - 2 * DFIT; // panels captured in the side rabbets, short of the bottom
+  const bx = t - dd + DFIT;
   add({ id: id('bottom'), name: 'Bottom', role: 'bottom', material: style.carcass,
     box: { min: [bx, 0, 0], size: [between, t, D] }, faceA: '+y', grain: 0, exposed: true,
     ops: [{ kind: 'pocket', from: [bx, t, bs], to: [bx + between, t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
@@ -172,7 +171,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
         ops.push(...gripOps(d.x0, d.x1, y1, pullX));
         add({ id: id(`door-${zi + 1}${doors.length > 1 ? 'LR'[di] : ''}`), name: `Door (${d.side} hinge)`, role: 'door',
           material: style.fronts, box: { min: [d.x0, fz[1], fz[2]], size: [d.x1 - d.x0, dh, ft] },
-          faceA: '-z', grain: 1, exposed: true, ops });
+          faceA: '-z', grain: style.grainMatch === 'across' ? 0 : 1, exposed: true, ops });
         hw(hinge.name.split(' + ')[0], hingeYs.length);
         hw(hinge.plate.name, hingeYs.length);
         gripHardware(1);
@@ -185,7 +184,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     const ops = gripOps(region.x0, region.x1, y1, (region.x0 + region.x1) / 2);
     add({ id: id(`drawer-${zi + 1}-front`), name: 'Drawer front', role: 'drawerFront', material: style.fronts,
       box: { min: [region.x0, y0, frontBackZ], size: [region.x1 - region.x0, y1 - y0, ft] },
-      faceA: '-z', grain: 0, exposed: true, ops });
+      faceA: '-z', grain: style.grainMatch === 'waterfall' ? 1 : 0, exposed: true, ops });
     gripHardware(1);
 
     const above = zoneSpans[zi + 1];
@@ -264,7 +263,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     boxSide(x0 + ds, '+x', 'L');
     boxSide(x1 - ds, '-x', 'R');
 
-    const midX0 = x0 + ds - rd + FIT / 2, midW = x1 - x0 - 2 * ds + 2 * rd - FIT;
+    const midX0 = x0 + ds - rd + DFIT, midW = x1 - x0 - 2 * ds + 2 * rd - 2 * DFIT;
     add({ id: id(`${p}-box-front`), name: 'Drawer box front', role: 'drawerBoxFront', material: style.drawerBox,
       box: { min: [midX0, y0, zf - df], size: [midW, bh, df] }, faceA: '-z', grain: 0, exposed: false,
       ops: [{ kind: 'pocket', from: [midX0, grooveY[0], zf - df], to: [midX0 + midW, grooveY[1], zf - df], depth: gd, note: 'bottom groove' }] });
@@ -301,7 +300,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     const botY = y0 + rec + bb;
     add({ id: id(`${p}-bottom`), name: notch ? 'Drawer bottom (notched)' : 'Drawer bottom', role: 'drawerBottom', material: style.drawerBottom,
       box: { min: [x0 + ds - gd + 0.5, y0 + rec, zb], size: [x1 - x0 - 2 * ds + 2 * gd - 1, bb, zf - df + gd - 0.5 - zb] },
-      faceA: '+y', grain: null, exposed: false,
+      faceA: '+y', grain: style.grainMatch === 'off' ? null : 0, exposed: false, // matched: grain runs across the run
       ops: notch ? [{ kind: 'cutRect', from: [notch.x0, botY, zb], to: [notch.x1, botY, notch.z], note: 'drain notch' }] : [] });
 
     // runner screw holes on the 32mm grid, front hole on the 37mm line

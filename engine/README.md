@@ -27,14 +27,17 @@ python tools/check_dxf.py ../jobs/vanity-48-run      # independent DXF audit + s
 - `src/cabinet.ts`: **the box primitive + front layout + hardware.** Every hole and dado is placed in 3D world coordinates.
 - `src/run.ts`: cabinets side by side along a wall, plus the countertop, sinks, faucet and plumbing cutouts.
 - `src/flatten.ts`: 3D part → 2D CNC drawing (face A up, grain along length). **Throws** if any operation is off the face or off the part, so bad geometry never reaches a file.
-- `src/nest.ts`: MaxRects nesting. Exposed parts keep their grain; hidden parts may rotate; long parts go on the material's 4x8 sheet first.
+- `src/match.ts`: **grain matching**. Each face (all doors + drawer fronts) and each level of drawer bottoms is laid out on the sheet the way it hangs, as one rigid block (mirrored for fronts, which are machined from the back), so the veneer runs on from part to part. Too wide for a sheet: runs of whole cabinets. `style.grainMatch`: `across` (default; horizontal grain), `waterfall` (vertical grain down each stack), `off` (best yield).
+- `src/nest.ts`: MaxRects nesting. Exposed parts keep their grain; hidden parts may rotate; long parts go on the material's 4x8 sheet first; matched blocks never turn. Tries several part orders, on standard and long sheets, and keeps the least plywood.
+- `src/sheets.ts`: flatten + match + nest, pure (the phone uses it to count sheets).
+- `src/fittest.ts`: **`fit-test.dxf`** in every job: slots from +0.1 to +0.6mm per jointed board. Cut it first on an offcut, slide each real sheet in, set `dadoFit` / `grooveFit`. Defaults: dados +0.4mm (0.016"), grooves +0.5mm (0.020"), captured panel ends 0.5mm short of the dado bottom (`depthFit`, glue room). It's wood: err loose.
 - `src/dxf.ts`: R12 DXF, one layer per operation and depth.
 - `src/job.ts`: writes the package. `viewer/preview.html` is the 3D template.
 - `catalog/*.json`: **materials (with ply counts, long sheets), hinges, runners, pulls, sinks, faucets, finishes, prices as data.** Anything not confirmed from Blum is flagged in a `verify` field and printed on the job sheet.
 - `src/catalog.ts`: style presets (Classic Euro, Ply Inset, Recessed Inset, Milan Flush). Presets are just switch settings from STYLES.md.
 
 ## Features
-Overlay / inset / recessed inset fronts · doors with adjustable shelves · Blum TANDEM drawers · U-drawers around a sink drain · bar pulls (counterbored), routed groove or push-to-open · wall-hung, toe-kick plinth or legs · flush end panels · countertop with vessel sink + faucet + plumbing cut-out · MaxRects nesting with grain and long sheets · quote · realistic finishes (`textures/`, CC0).
+Overlay / inset / recessed inset fronts · doors with adjustable shelves · Blum TANDEM drawers · U-drawers around a sink drain · bar pulls (counterbored), routed groove or push-to-open · wall-hung, toe-kick plinth or legs · flush end panels · countertop with vessel sink + faucet + plumbing cut-out · MaxRects nesting with grain and long sheets · grain-matched faces + drawer bottoms · open shelving with fixed dadoed shelves · fit-test coupon · quote · realistic finishes (`textures/`, CC0).
 
 ## Spec format (see `specs/`)
 ```json

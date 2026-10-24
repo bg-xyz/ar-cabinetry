@@ -110,6 +110,13 @@ struct ContentView: View {
                         Button { ar.setWidth(w) } label: { checkLabel("\(Int((w / 25.4).rounded()))\"", ar.widthChoice == w) }
                     }
                 } label: { MenuChip(title: "Width", value: ar.plan.map { "\(Int(($0.width / 25.4).rounded()))\"" } ?? "") }
+                Menu {
+                    ForEach(ARController.grains, id: \.id) { g in
+                        Button { ar.setGrain(g.id) } label: {
+                            if g.id == ar.plan?.grainMatch { Label("\(g.name): \(g.hint)", systemImage: "checkmark") } else { Text("\(g.name): \(g.hint)") }
+                        }
+                    }
+                } label: { MenuChip(title: "Grain", value: ARController.grains.first { $0.id == ar.plan?.grainMatch }?.name ?? "") }
             }
             if let design = ar.design, let choice = ar.choice {
                 HStack {
