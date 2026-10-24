@@ -240,3 +240,17 @@ screen for a native AR feel; support Vision Pro now (Blake has one to test); fin
 visionOS 26+). iPhone builds 16 and 17 uploaded. Website: "View in your room" (USDZ made in the browser, AR Quick
 Look on iPhone/iPad Safari, ~4 MB; untested on a phone) and **share links** `plywise.xyz/d/#<design>` built by
 `engine/src/share_page.ts` in the Pages workflow; the app's Share menu sends the link (with the photo, or alone).
+
+**Still later (2026-10-24 ~5am):** "Watch it build" (the piece assembles itself in maker's order; iPhone hammer
+button + Vision Pro), **Quick place** (any iPhone, no LiDAR: tap a wall, flick the free-wall slider; LiDAR phones get
+it as "No scan"), **kitchen islands** (`planIsland`: 48-90", finished back + end panels, toe kick, 12" seating
+overhang, placed 42" in front of 25" counters facing them; shared `CabinetBuilder.placement` turns it round), island
+photo on the site. Build **21** on TestFlight (internal); Vision Pro compiles in CI on every push.
+
+**Next session:**
+- Blake: test build 21 (quick place, sliders, glass home, tap-to-open, Watch it build, share link, island). On
+  Safari, try plywise.xyz demos full screen -> "View in your room" (AR Quick Look, untested on a phone).
+- Vision Pro on TestFlight: in App Store Connect add the visionOS platform to the Plywise app (+ Add Platform),
+  then extend CI: fetch signing files for visionOS and `xcodebuild archive` + upload the PlywiseVision target.
+- Friends group: builds 9/10 still WAITING_FOR_BETA_REVIEW; when clear: `python tools/asc.py friends 21 "..."`.
+- GROWTH.md items 5+: saved designs, measure confirm, get-it-made, before/after, light matching, sound, closets.
