@@ -251,8 +251,77 @@ final class ARController: ObservableObject {
     }
 
     private func tapped(at point: CGPoint) {
+        if phase == .placed, let hit = arView.entity(at: point) { toggleFront(hit); return }
         guard phase == .pickWall, let hit = arView.entity(at: point), let w = walls[hit.name] else { return }
         place(on: w)
+    }
+
+    // MARK: open and close, by touch
+
+    private var opened: Set<String> = []
+    private let tick = UIImpactFeedbackGenerator(style: .soft)
+
+    /// Tap a drawer front to slide the drawer out (box and all), tap a door to swing it on its hinges.
+    private func toggleFront(_ hit: Entity) {
+        guard let design else { return }
+        var e: Entity? = hit
+        var part: Design.Part?
+        while let cur = e, part == nil {   // the hit may be a pull riding on the front
+            part = design.parts.first { $0.id == cur.name }
+            e = cur.parent
+        }
+        guard let part, let body = cabinet?.children.first else { return }
+        let opening = !opened.contains(part.id)
+        if opening { opened.insert(part.id) } else { opened.remove(part.id) }
+        tick.impactOccurred()
+        if part.role == "drawerFront" {
+            // "A-drawer-2-front" -> every part of drawer 2 in cabinet A moves together
+            let prefix = String(part.id.dropLast("front".count))
+            for child in body.children where child.name.hasPrefix(prefix) {
+                child.move(to: Transform(translation: SIMD3<Float>(0, 0, opening ? 0.32 : 0)), relativeTo: body, duration: 0.45, timingFunction: .easeInOut)
+            }
+        } else if part.role == "door", let door = body.findEntity(named: part.id) {
+            let left = part.name.contains("left")
+            let px = Float((left ? part.box.min[0] : part.box.min[0] + part.box.size[0]) / 1000), pz = Float(part.box.min[2] / 1000)
+            let angle: Float = opening ? (left ? -1 : 1) * .pi * 0.55 : 0
+            var pivot = matrix_identity_float4x4
+            pivot.columns.3 = SIMD4(px, 0, pz, 1)
+            let m = pivot * simd_float4x4(simd_quatf(angle: angle, axis: SIMD3(0, 1, 0))) * pivot.inverse
+            door.move(to: Transform(matrix: m), relativeTo: body, duration: 0.5, timingFunction: .easeInOut)
+        }
+    }
+
+    // MARK: share
+
+    /// The AR view as a photo with a small catalogue caption, for the share sheet.
+    func snapshot(_ done: @escaping (UIImage?) -> Void) {
+        let title = plan?.name.capitalizingFirst ?? current.name
+        var bits: [String] = []
+        if let s = ARController.styles.first(where: { $0.preset == stylePreset }) { bits.append(s.name) }
+        if let d = design, let c = choice, let f = d.finishes[c.fronts] { bits.append(f.name.components(separatedBy: " (").first ?? f.name) }
+        bits.append("plywise.xyz")
+        let line = bits.joined(separator: "  \u{00B7}  ")
+        arView.snapshot(saveToHDR: false) { image in done(image.map { Self.caption($0, title: title, line: line) }) }
+    }
+
+    static func caption(_ image: UIImage, title: String, line: String) -> UIImage {
+        let size = image.size
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            image.draw(at: .zero)
+            let band = size.height * 0.16
+            let colors = [UIColor.black.withAlphaComponent(0).cgColor, UIColor.black.withAlphaComponent(0.55).cgColor] as CFArray
+            if let g = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
+                ctx.cgContext.drawLinearGradient(g, start: CGPoint(x: 0, y: size.height - band), end: CGPoint(x: 0, y: size.height), options: [])
+            }
+            let pad = size.width * 0.05
+            let serif = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .largeTitle).withDesign(.serif) ?? UIFontDescriptor()
+            let titleFont = UIFont(descriptor: serif, size: size.width * 0.06)
+            let capsFont = UIFont.systemFont(ofSize: size.width * 0.022, weight: .medium)
+            (title as NSString).draw(at: CGPoint(x: pad, y: size.height - band * 0.72),
+                                     withAttributes: [.font: titleFont, .foregroundColor: UIColor.white])
+            (line.uppercased() as NSString).draw(at: CGPoint(x: pad, y: size.height - band * 0.3),
+                                                 withAttributes: [.font: capsFont, .foregroundColor: UIColor.white.withAlphaComponent(0.85), .kern: size.width * 0.003])
+        }
     }
 
     private func wallFrame(_ w: CapturedRoom.Surface) -> WallFrame {
@@ -288,6 +357,7 @@ final class ARController: ObservableObject {
             notes = p.notes
             roomAnchor.isEnabled = false
             rebuild()
+            if phase != .placed { tick.impactOccurred(intensity: 0.8) }   // it just landed on the wall
             phase = .placed
             status = "\(p.name) \u{00B7} \(d.style)"
         } catch {
@@ -308,8 +378,10 @@ final class ARController: ObservableObject {
         light.shadow = DirectionalLightComponent.Shadow(maximumDistance: 4, depthBias: 2)
         e.addChild(light)
         light.look(at: SIMD3<Float>(0.6, 0.4, 0.3), from: SIMD3<Float>(-0.3, 2.4, 1.6), relativeTo: e)
+        e.generateCollisionShapes(recursive: true)   // so drawers and doors can be tapped open
         cabinetAnchor.addChild(e)
         cabinet = e
+        opened = []
         position()
     }
 

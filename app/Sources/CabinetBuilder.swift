@@ -200,9 +200,20 @@ enum CabinetBuilder {
             body.addChild(model)
         }
 
+        // each pull rides on its front, so opening a drawer or door in AR takes the pull with it
+        let fronts = design.parts.filter { $0.role == "door" || $0.role == "drawerFront" }
         var ceramic = MeshBuilder(), metal = MeshBuilder()
         for f in design.fixtures {
             if let spec = f.leg { body.addChild(leg(spec, design: design, lib: lib)); continue }
+            let c = SIMD3(f.box.lo.x + f.box.size[0] / 2, f.box.lo.y + f.box.size[1] / 2, f.box.lo.z)
+            if f.kind == "pull",
+               let front = fronts.first(where: { c.x >= $0.box.min[0] && c.x <= $0.box.min[0] + $0.box.size[0] && c.y >= $0.box.min[1] && c.y <= $0.box.min[1] + $0.box.size[1] }),
+               let host = body.findEntity(named: front.id) {
+                var m = MeshBuilder()
+                m.box(f.box.lo, f.box.hi)
+                if let r = try? m.resource() { host.addChild(ModelEntity(mesh: r, materials: [lib.blackMetal])) }
+                continue
+            }
             addFixture(f, ceramic: &ceramic, metal: &metal)
         }
         if let r = try? ceramic.resource(), !ceramic.isEmpty { body.addChild(ModelEntity(mesh: r, materials: [lib.ceramic])) }

@@ -21,3 +21,16 @@ calm, quiet luxury. Do not change the <piece> design, <counts>. No text, no peop
 Full prompts are in the ElevenLabs history (Image & Video -> History, 2026-10-23).
 
 Prompt rule (Leah, 2026-10-23): no real brand or designer names in prompts or captions; describe objects generically. City settings set a mood only; captions never say a piece comes from there.
+
+## Round 2 (2026-10-23 late): banded edges + lifestyle + film
+New references rendered with banding and the tapered legs. GPT Image 2.5, 3:2, 2 takes each:
+dresser (banded, shadow inset), bookcase (banded white oak), vanity (banded), and the **lifestyle** shot: a woman in an
+ivory linen dress walking past the dresser, fingertips trailing across the fronts, slow shutter (she is motion-blurred,
+face turned away; the dresser stays sharp). Picks: `site/img/photo-lifestyle.jpg` (hero poster), `photo-dresser.jpg`,
+`photo-bookcase.jpg`, `photo-vanity.jpg`, `og.jpg`.
+
+**Film:** ElevenLabs Video, Gemini Omni Flash 1.1, 16:9 720p 6s, 1 take, start frame = lifestyle-a (upload the frame via
+the image viewer's "Create Video"; uploading straight into the video composer's start-frame slot gave a broken blob).
+Prompt: "Real 35mm film footage, slow motion. Locked-off camera on a tripod ... the walnut dresser ... stay perfectly
+still and sharp ... no cuts, no text." Made loopable with ffmpeg (last 0.8s dissolves into the first): `site/img/film-dresser.mp4`
+(5.25s, ~1 MB). Video allowance after: 11 left this month.

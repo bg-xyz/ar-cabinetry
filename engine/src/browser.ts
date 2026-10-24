@@ -13,11 +13,13 @@ import sinks from '../catalog/sinks.json' with { type: 'json' };
 import faucets from '../catalog/faucets.json' with { type: 'json' };
 import finishes from '../catalog/finishes.json' with { type: 'json' };
 import legs from '../catalog/legs.json' with { type: 'json' };
+import prices from '../catalog/prices.json' with { type: 'json' };
 import { designRun } from './run.ts';
 import { model3d } from './model3d.ts';
 import { plan } from './planner.ts';
 import { cutSheets } from './sheets.ts';
-import type { Catalog, RunSpec } from './types.ts';
+import type { Sheet } from './nest.ts';
+import type { Catalog, Design, RunSpec } from './types.ts';
 import type { PlanInput } from './planner.ts';
 
 const cat = { materials, hinges, runners, pulls, sinks, faucets, finishes, legs } as unknown as Catalog;
@@ -26,8 +28,24 @@ const cat = { materials, hinges, runners, pulls, sinks, faucets, finishes, legs 
 function model(spec: RunSpec) {
   const d = designRun(spec, cat);
   const sheets = cutSheets(d, cat, 6.35, [], true).sheets;
-  return { ...model3d(d, cat, sheets), finishes: cat.finishes, warnings: d.warnings, sheetArea: sheetArea(sheets) };
+  return { ...model3d(d, cat, sheets), finishes: cat.finishes, warnings: d.warnings, sheetArea: sheetArea(sheets), cost: cost(d, sheets) };
 }
+
+// What it costs in materials, from the same rough prices the job quote uses (catalog/prices.json).
+type Prices = { materials: Record<string, { sheet: number; longSheet?: number }>; hardware: { match: string; each: number }[] };
+function cost(d: Design, sheets: Sheet[]): { materials: number; hardware: number } {
+  const pr = prices as unknown as Prices;
+  let materials = 0;
+  for (const s of sheets) {
+    const m = cat.materials[s.material], p = pr.materials[s.material];
+    const long = !!m?.longSheet && s.size[0] === m.longSheet[0] && s.size[1] === m.longSheet[1];
+    materials += (long ? p?.longSheet : p?.sheet) ?? 0;
+  }
+  let hardware = 0;
+  for (const h of d.hardware) hardware += (pr.hardware.find((x) => h.item.toLowerCase().includes(x.match.toLowerCase()))?.each ?? 0) * h.qty;
+  return { materials, hardware };
+}
+const dollars = (n: number) => `$${(Math.round(n / 10) * 10).toLocaleString('en-US')}`;
 
 // Sheets to buy, as plywood area in 4x8 sheet equivalents, for this design and with grain matching off.
 const sheetArea = (sheets: { size: [number, number] }[]) => sheets.reduce((a, s) => a + s.size[0] * s.size[1], 0) / (2440 * 1220);
@@ -52,9 +70,10 @@ export const Plywise = {
     const p = plan(JSON.parse(json) as PlanInput);
     const m = model(p.spec);
     const s = sheetNote(p.spec, m.sheetArea);
+    const priceNote = `About ${dollars(m.cost.materials + m.cost.hardware)} in plywood and hardware (${dollars(m.cost.materials)} + ${dollars(m.cost.hardware)}); the shop's cutting and finishing are extra.`;
     return {
       plan: { project: p.project, x0: p.x0, width: p.width, sinks: p.sinks, span: p.span, spans: p.spans, widthOptions: p.widthOptions,
-        notes: [...p.notes, s.note], name: p.spec.name, grainMatch: p.spec.style?.grainMatch ?? 'across', sheets: s.sheets, sheetsUnmatched: s.sheetsUnmatched },
+        notes: [p.notes[0], priceNote, ...p.notes.slice(1), s.note], name: p.spec.name, grainMatch: p.spec.style?.grainMatch ?? 'across', sheets: s.sheets, sheetsUnmatched: s.sheetsUnmatched },
       model: m,
     };
   }),

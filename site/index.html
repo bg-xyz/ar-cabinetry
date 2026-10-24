@@ -79,7 +79,7 @@
   .hero .lead { margin: 0 0 26px; }
   .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
   .hero figure { margin: clamp(36px, 6vw, 70px) 0 0; }
-  .plate img { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; }
+  .plate img, .plate video { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; background: var(--bone); }
   .plate figcaption { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0 0; flex-wrap: wrap; }
   @media (max-width: 900px) { .hero .top { grid-template-columns: 1fr; } }
 
@@ -102,6 +102,11 @@
   /* collection */
   .collection { display: grid; grid-template-columns: 1.25fr 1fr; gap: clamp(20px, 3vw, 40px); }
   .collection .plate:first-child { grid-row: span 2; }
+  .collection .facts-row { grid-column: 1 / -1; }
+  .collection .facts-row .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 28px; border-top: 1px solid var(--rule); }
+  .collection .facts-row .facts li { grid-template-columns: 1fr; gap: 4px; }
+  @media (max-width: 860px) { .collection .facts-row .facts { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .collection .facts-row .facts { grid-template-columns: 1fr; } }
   .collection .plate:first-child img { aspect-ratio: 4 / 5; }
   .collection h3 { margin-top: 4px; }
   @media (max-width: 860px) { .collection { grid-template-columns: 1fr; } .collection .plate:first-child img { aspect-ratio: 3 / 2; } }
@@ -199,9 +204,11 @@
         </div>
       </div>
     </div>
-    <figure class="plate">
-      <img src="img/photo-dresser.jpg" alt="A walnut dresser with eight drawers in two banks, framed in pale Baltic birch, on slim black legs in a sunlit bedroom" width="1536" height="1024" fetchpriority="high">
-      <figcaption><span class="label"><b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · grain matched</span><span class="label">Visualisation from the engine's design</span></figcaption>
+    <figure class="plate hero-film">
+      <video id="film" muted loop playsinline preload="none" poster="img/photo-lifestyle.jpg" aria-label="A woman in an ivory linen dress walks past a walnut dresser, trailing her fingertips across the drawer fronts">
+        <source src="img/film-dresser.mp4" type="video/mp4">
+      </video>
+      <figcaption><span class="label"><b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · banded edges · grain matched</span><span class="label">Visualisation from the engine's design</span></figcaption>
     </figure>
   </div>
 </header>
@@ -234,14 +241,18 @@
     </div>
     <div class="collection">
       <figure class="plate rise" style="margin:0">
-        <img src="img/photo-bookcase.jpg" alt="A white oak built-in bookcase with three open bays above closed doors, in a Milan living room with a leather lounge chair" width="1536" height="1024" loading="lazy">
+        <img src="img/photo-bookcase.jpg" alt="A white oak built-in bookcase with three open bays above closed doors, clean banded edges, in a living room with a leather lounge chair" width="1536" height="1024" loading="lazy">
         <figcaption><div><div class="label"><b>Nº 02</b> · Built-in bookcase · wall to wall</div><h3>To the ceiling, around the window.</h3></div><span class="label">Visualisation</span></figcaption>
       </figure>
       <figure class="plate rise" style="margin:0">
         <img src="img/photo-vanity.jpg" alt="A floating walnut vanity with a birch top, white vessel sink and black faucet in a terrazzo bathroom" width="1536" height="1024" loading="lazy">
         <figcaption><div><div class="label"><b>Nº 03</b> · Floating vanity · 36 in</div><h3>Centred on the old drain.</h3></div><span class="label">Visualisation</span></figcaption>
       </figure>
-      <div class="rise">
+      <figure class="plate rise" style="margin:0">
+        <img src="img/photo-dresser.jpg" alt="A walnut dresser with eight banded drawer fronts set into the case, on tapered walnut legs with brass tips, in a sunlit bedroom" width="1536" height="1024" loading="lazy">
+        <figcaption><div><div class="label"><b>Nº 04</b> · Dresser · 60 in</div><h3>One board of walnut, eight drawers.</h3></div><span class="label">Visualisation</span></figcaption>
+      </figure>
+      <div class="rise facts-row">
         <ul class="facts" style="margin-top:0">
           <li><span>Vanity</span><span>24 to 84 in. Double sink from 60 in. Keeps 15 in from the toilet, wraps the trap with U-drawers.</span></li>
           <li><span>Bookcase</span><span>Fills the wall, bays no wider than 36 in, as tall as the ceiling lets you stand it up.</span></li>
@@ -423,6 +434,13 @@
   }
   document.getElementById('poster').onclick = () => { document.getElementById('poster').remove(); show(current); };
   show(current);
+
+  // the hero film: plays muted while on screen; the still stays if motion is reduced or the file is missing
+  const film = document.getElementById('film');
+  if (film && !matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    film.preload = 'auto';
+    new IntersectionObserver(([e]) => { if (e.isIntersecting) film.play().catch(() => {}); else film.pause(); }, { threshold: 0.2 }).observe(film);
+  }
 
   // quiet entrance as sections scroll in
   const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => {

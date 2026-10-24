@@ -38,6 +38,7 @@ struct Caps: View {
 struct ContentView: View {
     @StateObject private var ar = ARController()
     @State private var showDetails = false
+    @State private var shareItem: ShareItem?
 
     var body: some View {
         ZStack {
@@ -49,6 +50,7 @@ struct ContentView: View {
             }
             .padding()
         }
+        .sheet(item: $shareItem) { item in ShareSheet(items: [item.image, URL(string: "https://plywise.xyz")!]) }
     }
 
     @ViewBuilder private var topBanner: some View {
@@ -144,6 +146,7 @@ struct ContentView: View {
             ForEach(Array((showDetails ? ar.notes : Array(ar.notes.prefix(1))).enumerated()), id: \.offset) { _, note in
                 Text(note).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
+            Text("Tap a drawer or door to open it.").font(.caption).foregroundStyle(.tertiary)
             Divider().overlay(Theme.rule)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
                 Menu {
@@ -180,6 +183,12 @@ struct ContentView: View {
                 nudge("arrow.up.to.line") { ar.nudge(out: 0.5) }
                 Spacer()
                 Button("Other wall") { ar.pickAnotherWall() }.font(.footnote.weight(.medium))
+                Button { ar.snapshot { image in shareItem = image.map(ShareItem.init) } } label: {
+                    Image(systemName: "square.and.arrow.up").font(.footnote.weight(.semibold)).frame(width: 38, height: 32)
+                        .foregroundStyle(Theme.onWalnut).background(Theme.walnut, in: RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Share a photo")
             }
         }
     }
@@ -210,6 +219,18 @@ struct ContentView: View {
 
 extension String {
     var capitalizingFirst: String { prefix(1).uppercased() + dropFirst() }
+}
+
+/// A captioned AR photo on its way to the share sheet.
+struct ShareItem: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController { UIActivityViewController(activityItems: items, applicationActivities: nil) }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
 }
 
 /// The one strong button: walnut, squared, with an arrow.
