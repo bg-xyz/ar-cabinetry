@@ -1,0 +1,84 @@
+{
+  "name": "60\" double vanity, floating, walnut",
+  "units": "mm",
+  "style": {
+    "preset": "classic-euro",
+    "grainMatch": "across",
+    "frontFinish": "walnut",
+    "carcassFinish": "walnut",
+    "topFinish": "white-oak"
+  },
+  "mounting": "wall-hung",
+  "elevation": 260.34999999999997,
+  "cabinets": [
+    {
+      "id": "A",
+      "width": 581.025,
+      "height": 508,
+      "depth": 508,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "width": 361.95,
+      "height": 508,
+      "depth": 508,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "width": 581.025,
+      "height": 508,
+      "depth": 508,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        }
+      ]
+    }
+  ],
+  "top": {
+    "material": "bb18",
+    "overhangSides": 0,
+    "overhangFront": 12.7
+  },
+  "sinks": [
+    {
+      "cabinet": "A",
+      "sink": "vessel-round-16",
+      "faucet": "vessel-single-hole"
+    },
+    {
+      "cabinet": "C",
+      "sink": "vessel-round-16",
+      "faucet": "vessel-single-hole"
+    }
+  ]
+}

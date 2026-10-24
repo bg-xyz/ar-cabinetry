@@ -49,6 +49,8 @@ for (let i = 0; i < runs; i++) {
     obstacles,
     sinkAt: rnd() < 0.4 ? between(0, wallLength / IN) * IN : undefined,
     width: rnd() < 0.2 ? between(24, 110) * IN : undefined,
+    sinks: rnd() < 0.3 ? pick([1, 2] as const) : undefined,
+    mounting: rnd() < 0.3 ? pick(['wall-hung', 'toe-kick', 'legs'] as const) : undefined,
     style: { preset: pick(presets), grainMatch: pick(grains), rhythm: pick(['golden', 'golden', 'even'] as const), pullSizing: pick(['scale', 'scale', 'fixed'] as const), frontFinish: pick(finishes), carcassFinish: pick(finishes), topFinish: pick(finishes), leg: pick(legs) },
   };
   let p;

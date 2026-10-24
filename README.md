@@ -17,7 +17,7 @@ Contemporary Euro cabinets (vanities, built-ins, dressers, desks, counters) are 
 cd engine
 npm install            # dev tools only (TypeScript, esbuild); the engine itself has no dependencies
 npm run samples        # builds every spec in engine/specs/ into jobs/
-npm test               # 190+ tests
+npm test               # 180+ tests
 node test/fuzz.ts      # random rooms through every build: refuse cleanly or build clean, no critic flags
 node tools/elevations.ts out.html   # every build across a range of walls, drawn to scale
 ```

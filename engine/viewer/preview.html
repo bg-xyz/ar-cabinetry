@@ -827,6 +827,8 @@ if (window.__spec) {
 }
 window.__view = (pos, target) => { camera.position.set(...pos); controls.target.set(...target); controls.update(); };
 window.__setFinish = (key, id) => { choice[key] = id; $('f-' + key).value = id; applyFinishes(); };
+// for scripted renders (marketing films): the scene, its parts and fixtures
+window.__three = { THREE, scene, camera, renderer, controls, group, meshes, fixtures };
 window.__ready = true;
 </script>
 </body>

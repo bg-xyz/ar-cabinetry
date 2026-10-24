@@ -161,6 +161,21 @@
   .makers img { border-radius: 4px; border: 1px solid var(--rule); }
 
   /* open source */
+  /* Vision Pro: dark, like the room with the lights down */
+  .vision { background: #171310; color: var(--on-walnut); }
+  .vision .label { color: rgba(241, 230, 214, .6); }
+  .vision h2 em { color: var(--brass); }
+  .vision .lead { color: rgba(241, 230, 214, .78); }
+  .vision .facts { border-top-color: rgba(241, 230, 214, .16); }
+  .vision .facts li { border-bottom-color: rgba(241, 230, 214, .16); }
+  .vision .facts li span:first-child { color: var(--on-walnut); }
+  .vision .facts li span:last-child { color: rgba(241, 230, 214, .7); }
+  .vision .split { grid-template-columns: 1.25fr 1fr; }
+  @media (max-width: 860px) { .vision .split { grid-template-columns: 1fr; } }
+  .vision .plate video { aspect-ratio: 16 / 9; border-radius: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, .45); }
+  .vision figcaption { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+  .vision .said { font: italic 400 clamp(22px, 2.4vw, 30px)/1.3 var(--serif); color: var(--on-walnut); margin: 26px 0 0; }
+  .vision .said::before { content: ''; display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--signal); margin-right: 14px; vertical-align: 3px; box-shadow: 0 0 0 6px rgba(216, 87, 42, .22); }
   .oss { background: var(--walnut); color: var(--on-walnut); }
   .oss .label { color: rgba(241, 230, 214, .65); }
   .oss .grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgba(241, 230, 214, .18); }
@@ -198,6 +213,7 @@
       <a href="#how">How it works</a>
       <a href="#collection">Collection</a>
       <a href="#proportion">Proportion</a>
+      <a href="#vision">Vision Pro</a>
       <a href="#grain">Craft</a>
       <a href="#makers">For makers</a>
       <a href="#open">Open source</a>
@@ -210,11 +226,11 @@
   <div class="wrap">
     <div class="top">
       <div>
-        <div class="label" style="margin-bottom:22px"><span class="dot"></span>Custom cabinetry, planned from a scan of your room</div>
+        <div class="label" style="margin-bottom:22px"><span class="dot"></span>Custom cabinetry, planned from a scan of your room · iPhone and Apple Vision Pro</div>
         <h1>Built for <em>your walls.</em></h1>
       </div>
       <div>
-        <p class="lead">Scan a room with your iPhone. Plywise designs modern European cabinetry for that exact wall, shows it to you life-size in the room, and hands a local CNC shop every file to cut it.</p>
+        <p class="lead">Scan a room with your iPhone, or just look at it with Apple Vision Pro. Plywise designs modern European cabinetry for that exact wall, shows it to you life-size in the room, and hands a local CNC shop every file to cut it.</p>
         <div class="ctas">
           <a class="btn solid" href="#demo">Spin the 3D model <span class="arr">→</span></a>
           <a class="btn" href="#how">How it works</a>
@@ -237,7 +253,7 @@
       <h2>From a bare wall to a cut list, <em>in minutes.</em></h2>
     </div>
     <div class="steps rise">
-      <div><div class="n">01</div><h3>Choose</h3><p>Tell it what you're building: a vanity, a bookcase, a dresser, a desk, a coffee bar, an island.</p></div>
+      <div><div class="n">01</div><h3>Say it</h3><p>Tell it what you're building, out loud or with a flick: &ldquo;a floating walnut vanity with two sinks.&rdquo;</p></div>
       <div><div class="n">02</div><h3>Scan</h3><p>Walk the room with a LiDAR iPhone. Walls, doors, windows, ceiling height, the old sink: all measured.</p></div>
       <div><div class="n">03</div><h3>See it</h3><p>Tap a wall. It's planned for the clear space, then locked onto the wall in AR, in real wood.</p></div>
       <div><div class="n">04</div><h3>Have it cut</h3><p>A job package any 3-axis CNC shop can cut: layered DXF sheets, cut list, hardware and a quote.</p></div>
@@ -316,6 +332,30 @@
         <li><span>Checked</span><span>Every design passes eight proportion checks before you see it: no near-misses, no squat doors, runs that mirror.</span></li>
       </ul>
       <p class="calm">When nothing is off, the eye settles, and you stop noticing the furniture and start noticing the room.</p>
+    </div>
+  </div>
+</section>
+
+<section class="vision" id="vision">
+  <div class="wrap split">
+    <figure class="plate rise" style="margin:0">
+      <video id="visionFilm" muted loop playsinline preload="none" poster="img/film-vision-poster.jpg" aria-label="An empty bathroom wall. A glass panel hears &ldquo;A floating walnut vanity with two sinks&rdquo;, then a 60 inch walnut double vanity builds itself on the wall, part by part, and its name floats beside it">
+        <source src="img/film-vision.mp4" type="video/mp4">
+      </video>
+      <figcaption><span class="label"><b style="color:var(--on-walnut)">Nº 07</b> · Double vanity · 60 in · Walnut · floating</span><span class="label">Visualisation of the Vision Pro app</span></figcaption>
+    </figure>
+    <div class="rise">
+      <div class="label" style="margin-bottom:18px">Apple Vision Pro</div>
+      <h2>Native on <em>Vision Pro.</em></h2>
+      <p class="lead" style="margin-top:20px">Built for spatial computing, not ported to it. Look at a wall and Plywise finds it. Say what you want and it plans it for that wall, then builds it there at true size, part by part.</p>
+      <p class="said">A floating walnut vanity with two sinks.</p>
+      <ul class="facts">
+        <li><span>Say it</span><span>The build, its size, sinks, style and wood, understood on the device. Then say what to change: &ldquo;make it white oak.&rdquo;</span></li>
+        <li><span>Look, pinch</span><span>Vision Pro finds your walls. Pinch one and the piece is sized to its clear space and stood against it.</span></li>
+        <li><span>Watch it build</span><span>Every part drops into place in the order a maker assembles it: the same parts the shop will cut.</span></li>
+        <li><span>It stays</span><span>Each piece is kept on a world anchor. Leave the room, come back tomorrow, and it's standing where you left it.</span></li>
+        <li><span>Up close</span><span>Pinch a drawer to open it, turn the piece round in its volume, and show the golden ratios on the fronts.</span></li>
+      </ul>
     </div>
   </div>
 </section>
@@ -432,7 +472,7 @@
       </div>
     </div>
     <div class="grid">
-      <div><h3>Engine</h3><p>TypeScript, no dependencies. A wall goes in; every part, hole and dado comes out. 190+ tests and a design critic that checks every plan against eight proportion rules.</p></div>
+      <div><h3>Engine</h3><p>TypeScript, no dependencies. A wall goes in; every part, hole and dado comes out. 180+ tests and a design critic that checks every plan against eight proportion rules.</p></div>
       <div><h3>Shop files</h3><p>Layered DXF per sheet for VCarve and Aspire, face-only machining for 3-axis routers, grain-matched fronts, cut list, hardware and install kit.</p></div>
       <div><h3>Try it</h3><p><code>cd engine &amp;&amp; npm run samples</code> builds every sample into a full job package with a 3D preview.</p></div>
     </div>
@@ -460,7 +500,7 @@
     <span class="label">© 2026 · Engine AGPL-3.0</span>
     <a class="label" href="https://github.com/bg-xyz/ar-cabinetry">GitHub</a>
     <a class="label" href="privacy.html">Privacy</a>
-    <span class="label">Wood textures <a href="https://ambientcg.com">ambientCG</a> (CC0) · photos are visualisations</span>
+    <span class="label">Wood textures <a href="https://ambientcg.com">ambientCG</a> (CC0) · photos are visualisations · Apple Vision Pro and iPhone are trademarks of Apple Inc.</span>
   </div>
 </footer>
 
@@ -508,9 +548,11 @@
     const html = scenes.filter(([t]) => film.currentTime >= t).pop()[1];
     if (cap.innerHTML !== html) cap.innerHTML = html;
   });
-  if (film && !matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    film.preload = 'auto';
-    new IntersectionObserver(([e]) => { if (e.isIntersecting) film.play().catch(() => {}); else film.pause(); }, { threshold: 0.2 }).observe(film);
+  // films play muted while on screen
+  for (const v of [film, document.getElementById('visionFilm')]) {
+    if (!v || matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) continue;
+    v.preload = 'auto';
+    new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play().catch(() => {}); else v.pause(); }, { threshold: 0.2 }).observe(v);
   }
 
   // quiet entrance as sections scroll in

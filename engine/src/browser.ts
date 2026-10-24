@@ -17,6 +17,7 @@ import prices from '../catalog/prices.json' with { type: 'json' };
 import { designRun } from './run.ts';
 import { model3d } from './model3d.ts';
 import { plan } from './planner.ts';
+import { understand } from './intent.ts';
 import { critique, proportionNote, RULES } from './critic.ts';
 import { cutSheets } from './sheets.ts';
 import type { Sheet } from './nest.ts';
@@ -69,6 +70,8 @@ function guard(fn: () => unknown): string {
 export const Plywise = {
   version: '0.3.0',
   design: (json: string) => guard(() => model(JSON.parse(json) as RunSpec)),
+  // "a floating walnut double vanity" -> the build, size, style and finishes it asks for (src/intent.ts)
+  understand: (text: string) => guard(() => understand(text)),
   plan: (json: string) => guard(() => {
     const p = plan(JSON.parse(json) as PlanInput);
     const m = model(p.spec);

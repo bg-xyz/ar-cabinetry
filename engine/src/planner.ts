@@ -27,6 +27,7 @@ import { GOLDEN_MINOR, PHI, goldenSplit, graduate } from './proportion.ts';
 const IN = 25.4;
 export const STANDARD_WIDTHS = [24, 30, 36, 42, 48, 54, 60, 66, 72, 84].map((w) => w * IN);
 export const DOUBLE_SINK_MIN = 60 * IN;
+const SINGLE_SINK_MAX = 72 * IN;
 const TOILET_CLEAR = 15 * IN;
 const DOOR_CLEAR = 2 * IN;
 const EDGE = 0.5 * IN;
@@ -51,6 +52,7 @@ export interface PlanInput {
   obstacles?: Obstacle[];
   sinkAt?: number;          // centre of the existing sink, if the scan found one
   width?: number;           // force a width instead of the best fit
+  sinks?: 1 | 2;            // vanities: asked for one or two sinks (default: two from 60" up)
   style?: Partial<Style> & { preset?: string };
   mounting?: RunSpec['mounting'];
 }
@@ -115,8 +117,9 @@ export function freeSpans(wallLength: number, obstacles: Obstacle[] = [], topHei
   return spans.filter(([a, b]) => b - a > 1);
 }
 
-/** Cabinets for a vanity of this width: one sink cabinet, sink + drawer bank, or sink | bank | sink. */
-export function vanityLayout(width: number): { cabinets: CabinetSpec[]; sinkCabinets: string[] } {
+/** Cabinets for a vanity of this width: one sink cabinet, sink + drawer bank, or sink | bank | sink
+ *  (or, asked for one sink on a wide wall, bank | sink | bank). */
+export function vanityLayout(width: number, sinks: 1 | 2 = width >= DOUBLE_SINK_MIN ? 2 : 1): { cabinets: CabinetSpec[]; sinkCabinets: string[] } {
   const twoDrawers = [{ type: 'drawer' as const, size: 'fill' as const }, { type: 'drawer' as const, size: 'fill' as const }];
   const bankDrawers = [...twoDrawers, { type: 'drawer' as const, size: 'fill' as const }];
   const box = (id: string, w: number, zones: CabinetSpec['zones']): CabinetSpec => ({ id, width: w, height: HEIGHT, depth: DEPTH, zones });
@@ -124,6 +127,11 @@ export function vanityLayout(width: number): { cabinets: CabinetSpec[]; sinkCabi
   if (width < DOUBLE_SINK_MIN) {
     const bank = goldenSplit(width)[1]; // sink : bank = the golden section
     return { cabinets: [box('A', width - bank, twoDrawers), box('B', bank, bankDrawers)], sinkCabinets: ['A'] };
+  }
+  if (sinks === 1) {
+    // one centred sink, phi times each bank beside it
+    const side = Math.round(width / (2 + PHI) / (IN / 4)) * (IN / 4);
+    return { cabinets: [box('A', side, bankDrawers), box('B', width - 2 * side, twoDrawers), box('C', side, bankDrawers)], sinkCabinets: ['B'] };
   }
   // each sink cabinet is phi times the bank between them
   const bank = Math.round(width / (1 + 2 * PHI) / (IN / 4)) * (IN / 4);
@@ -172,7 +180,11 @@ export function planVanity(input: PlanInput): Plan {
     if (input.width > avail + 0.01) notes.push(`${inches(input.width)} doesn't fit here; using ${inches(width)}.`);
   }
   width = capToSheet(width, notes);
-  const sinks = width >= DOUBLE_SINK_MIN ? 2 : 1;
+  if (input.sinks === 1 && width > SINGLE_SINK_MAX) {
+    width = SINGLE_SINK_MAX;
+    notes.push('A one-sink vanity stops at 72": wider than that, the drawer banks get too wide. Two sinks fill more wall.');
+  }
+  const sinks = width >= DOUBLE_SINK_MIN && input.sinks !== 1 ? 2 : 1;
 
   // centre on the old sink when there is one (single sink), else centre in the clear stretch
   const lo = span[0] + EDGE, hi = span[1] - EDGE - width;
@@ -183,7 +195,7 @@ export function planVanity(input: PlanInput): Plan {
     (holdsSink ? (sinks === 1 ? ', centred on your existing sink.' : ' around your existing plumbing.') : '.'));
   if (holdsSink && sinks === 1 && Math.abs(x0 - want) > 0.5 * IN)
     notes.push(`Shifted ${inches(Math.abs(x0 - want))} off the old drain to fit; the plumber moves the drain to match.`);
-  if (sinks === 1 && width >= 54 * IN) notes.push('A double vanity needs 60" of clear wall.');
+  if (sinks === 1 && input.sinks !== 1 && (width >= 54 * IN || input.sinks === 2)) notes.push('A double vanity needs 60" of clear wall.');
   obstacleNotes(input, 33 * IN, notes);
   if (holdsSink && sinks === 2) notes.push('Two sinks means a second drain: the plumber adds a branch.');
 
@@ -196,7 +208,7 @@ export function planVanity(input: PlanInput): Plan {
   }
   if (fillerNote(walls)) notes.push(fillerNote(walls));
 
-  const { cabinets, sinkCabinets } = vanityLayout(width);
+  const { cabinets, sinkCabinets } = vanityLayout(width, sinks);
   const spec: RunSpec = {
     name: `${Math.round(width / IN)}" ${sinks === 2 ? 'double' : 'single'} vanity`,
     units: 'mm',
@@ -363,7 +375,7 @@ export function planFurniture(input: PlanInput, project: 'console' | 'dresser'):
     name: `${Math.round(width / IN)}" ${f.name}`,
     units: 'mm',
     style: { preset: 'classic-euro', grainMatch: 'across', ...input.style },
-    mounting: 'legs',
+    mounting: input.mounting ?? 'legs',   // floating (wall-hung) hangs where the legs would have stood it
     elevation: f.legs,
     cabinets,
     top: { material: 'bb18', overhangSides: 0, overhangFront: 0 },
