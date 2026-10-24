@@ -29,8 +29,9 @@ designs real (buildable, priced), which is what turns "cool AR toy" into "I'm ac
 2. ~~Share links~~ **Done (2026-10-24):** `plywise.xyz/d/#<base64url design>` (about 1 KB of JSON, no server, nothing
    personal). The page designs it in the browser with the app's own engine: 3D, the finishes chosen in the app,
    "View in your room" and "Make it a photo". The app's Share sends it with the photo, or on its own.
-3. **Assembly film**: a 6-second animation of the piece building itself (sides, back sliding into its dado, drawers
-   gliding in, fronts landing), recorded from AR. The most shareable thing we can make, and it explains the product.
+3. ~~Assembly film~~ **Done (2026-10-24):** "Watch it build" (hammer button on iPhone, a button on Vision Pro): the
+   piece assembles itself in maker's order, the back sliding down its groove, fronts landing with their pulls.
+   Screen-record it to share. Next: record it in-app (ReplayKit) with the caption burned in.
 4. **No-LiDAR mode**: most iPhones don't have LiDAR. Plane detection works on every ARKit iPhone; let people tap a wall
    and enter or two-tap its width. Multiplies the audience.
 5. **Saved designs** ("My rooms"): keep every design with its wall and photo; reopen in AR later.

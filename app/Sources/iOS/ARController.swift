@@ -258,6 +258,14 @@ final class ARController: ObservableObject {
         arView.snapshot(saveToHDR: false) { image in done(image.map { Self.caption($0, title: title, line: line) }) }
     }
 
+    /// "Watch it build": a fresh copy assembles itself on the wall, part by part (screen-record it to share).
+    func watchItBuild() {
+        rebuild()
+        guard let design, let body = cabinet?.children.first else { return }
+        tick.impactOccurred()
+        CabinetBuilder.assemble(body, design: design)
+    }
+
     /// This design as a link anyone can open: 3D in the browser, the finishes picked here, AR on iPhone.
     var shareLink: URL? { plan?.shareLink(fronts: choice?.fronts, cabinet: choice?.cabinet, top: choice?.top) }
 

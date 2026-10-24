@@ -141,6 +141,12 @@ struct ContentView: View {
                 nudge("arrow.up.to.line") { ar.nudge(out: 0.5) }
                 Spacer()
                 Button("Other wall") { ar.pickAnotherWall() }.font(.footnote.weight(.medium))
+                Button { ar.watchItBuild() } label: {
+                    Image(systemName: "hammer").font(.footnote.weight(.semibold)).frame(width: 38, height: 32)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.rule))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Watch it build")
                 shareMenu
             }
         }

@@ -46,6 +46,7 @@ final class VisionModel {
     var wallLength = 2440.0   // mm
     var wallHeight = 2440.0
     var version = 0           // bumps on every change, so the 3D views rebuild
+    var assembleToken = 0     // bumps for "Watch it build"
 
     var current: Builds.Kind { Builds.projects.first { $0.id == project } ?? Builds.projects[0] }
 
@@ -152,6 +153,7 @@ struct VisionHome: View {
                 if let e = model.error { Text(e).font(.callout).foregroundStyle(Theme.signal) }
                 HStack(spacing: 14) {
                     Button { openWindow(id: "piece") } label: { Label("See it in 3D", systemImage: "cube.transparent") }
+                    Button { model.assembleToken += 1 } label: { Label("Watch it build", systemImage: "hammer") }
                     Button {
                         Task {
                             if inRoom { await dismissImmersiveSpace(); inRoom = false }
@@ -215,6 +217,14 @@ struct PieceVolume: View {
             CabinetBuilder.toggleFront(value.entity, design: design, body: body, opened: &opened)
         })
         .onChange(of: model.version) { _, _ in opened = [] }   // a fresh build starts closed
+        .onChange(of: model.assembleToken) { _, _ in
+            opened = []
+            built.version = -1
+            rebuild(plate: nil)
+            if let design = model.design, let body = stage.children.first?.children.first?.children.first {
+                CabinetBuilder.assemble(body, design: design)
+            }
+        }
     }
 
     /// Fit the piece in the 1.5 x 1.1 x 0.8 m volume (true scale when it fits), standing on its floor.
@@ -295,6 +305,13 @@ struct RoomSpace: View {
         .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded { value in tapped(value.entity) })
         .task { await findWalls() }
         .onChange(of: model.version) { _, _ in if let id = placedOn { place(on: id, replan: false) } }
+        .onChange(of: model.assembleToken) { _, _ in
+            guard let id = placedOn else { return }
+            place(on: id, replan: false)
+            if let design = model.design, let body = world.findEntity(named: "piece")?.children.first {
+                CabinetBuilder.assemble(body, design: design)
+            }
+        }
     }
 
     private func findWalls() async {

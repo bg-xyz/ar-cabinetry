@@ -204,7 +204,7 @@ enum CabinetBuilder {
         let fronts = design.parts.filter { $0.role == "door" || $0.role == "drawerFront" }
         var ceramic = MeshBuilder(), metal = MeshBuilder()
         for f in design.fixtures {
-            if let spec = f.leg { body.addChild(leg(spec, design: design, lib: lib)); continue }
+            if let spec = f.leg { let l = leg(spec, design: design, lib: lib); l.name = "leg"; body.addChild(l); continue }
             let c = SIMD3(f.box.lo.x + f.box.size[0] / 2, f.box.lo.y + f.box.size[1] / 2, f.box.lo.z)
             if f.kind == "pull",
                let front = fronts.first(where: { c.x >= $0.box.min[0] && c.x <= $0.box.min[0] + $0.box.size[0] && c.y >= $0.box.min[1] && c.y <= $0.box.min[1] + $0.box.size[1] }),
@@ -216,8 +216,8 @@ enum CabinetBuilder {
             }
             addFixture(f, ceramic: &ceramic, metal: &metal)
         }
-        if let r = try? ceramic.resource(), !ceramic.isEmpty { body.addChild(ModelEntity(mesh: r, materials: [lib.ceramic])) }
-        if let r = try? metal.resource(), !metal.isEmpty { body.addChild(ModelEntity(mesh: r, materials: [lib.blackMetal])) }
+        if let r = try? ceramic.resource(), !ceramic.isEmpty { let e = ModelEntity(mesh: r, materials: [lib.ceramic]); e.name = "fixtures"; body.addChild(e) }
+        if let r = try? metal.resource(), !metal.isEmpty { let e = ModelEntity(mesh: r, materials: [lib.blackMetal]); e.name = "fixtures"; body.addChild(e) }
         return root
     }
 
@@ -365,5 +365,31 @@ extension CabinetBuilder {
             door.move(to: Transform(matrix: m), relativeTo: body, duration: 0.5, timingFunction: .easeInOut)
         }
         return true
+    }
+}
+
+extension CabinetBuilder {
+    /// "Watch it build": every part drops into place in the order a maker would assemble it (legs or
+    /// kick, bottom, sides, the back sliding down its groove, stretchers, shelves, drawer boxes, fronts
+    /// with their pulls, the top, then the sink and faucet). About four seconds for a dresser.
+    static func assemble(_ body: Entity, design: Design, step: Double = 0.07) {
+        let rank: [String: Int] = ["plinth": 1, "bottom": 2, "side": 3, "back": 4, "rail": 5, "stretcher": 5, "shelf": 6,
+                                   "endPanel": 7, "drawerBottom": 8, "drawerSide": 8, "drawerBoxFront": 8, "drawerBack": 8,
+                                   "door": 9, "drawerFront": 9, "top": 10]
+        let roleOf = Dictionary(design.parts.map { ($0.id, $0.role) }, uniquingKeysWith: { a, _ in a })
+        func order(_ e: Entity) -> Int { e.name == "leg" ? 0 : e.name == "fixtures" ? 11 : roleOf[e.name].flatMap { rank[$0] } ?? 11 }
+        let items = body.children.map { $0 }.sorted { (order($0), $0.position(relativeTo: body).y) < (order($1), $1.position(relativeTo: body).y) }
+        for (i, e) in items.enumerated() {
+            let target = e.transform
+            var start = target
+            // backs slide down their groove; everything else drops in from just above and in front
+            start.translation += roleOf[e.name] == "back" ? SIMD3(0, 0.6, 0) : SIMD3(0, 0.28, 0.18)
+            e.transform = start
+            e.isEnabled = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * step) {
+                e.isEnabled = true
+                e.move(to: target, relativeTo: e.parent, duration: 0.55, timingFunction: .easeOut)
+            }
+        }
     }
 }
