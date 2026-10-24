@@ -12,7 +12,7 @@ import UIKit
 /// share one coordinate system: nothing has to be re-aligned after the scan.
 @MainActor
 final class ARController: ObservableObject {
-    enum Phase { case start, scanning, processing, pickWall, placed, unsupported }
+    enum Phase { case start, scanning, processing, pickWall, quickPlace, placed, unsupported }
 
     // what you can build, the styles and the grain choices are shared with Vision Pro (Shared/Options.swift)
     typealias Project = Builds.Kind
@@ -52,6 +52,11 @@ final class ARController: ObservableObject {
     private let cabinetAnchor = AnchorEntity(world: matrix_identity_float4x4)
     private var cabinet: Entity?
     private var wall: CapturedRoom.Surface?
+    /// Quick place (any iPhone, no scan): tap a wall, say how much of it is free.
+    @Published var quick = false
+    @Published var quickWidth = 72 * 25.4     // mm of free wall at the tap
+    @Published var quickCeiling = 96 * 25.4
+    static var hasLiDAR: Bool { RoomCaptureSession.isSupported }
     private var frame: WallFrame?
     private var along: Float = 0      // m, user nudge along the wall
     private var out: Float = 0        // m, gap between wall and cabinet back
@@ -66,13 +71,68 @@ final class ARController: ObservableObject {
         scanDelegate.onEnd = { [weak self] data, error in Task { @MainActor in await self?.scanEnded(data, error) } }
         let config = ARWorldTrackingConfiguration()
         config.environmentTexturing = .automatic
+        config.planeDetection = [.horizontal, .vertical]   // quick place finds walls and the floor
         arView.session.run(config)
+    }
+
+    // MARK: quick place (no scan, no LiDAR needed)
+
+    func startQuickPlace() {
+        session?.stop(pauseARSession: false)
+        session = nil
+        cabinet?.removeFromParent()
+        cabinet = nil
+        roomAnchor.children.removeAll()
+        room = nil
+        wall = nil
+        frame = nil
+        quick = true
+        notes = []
+        phase = .quickPlace
+        status = "Point at the wall, then tap where the \(current.noun) goes"
+    }
+
+    private func quickTap(_ point: CGPoint) {
+        guard let hit = arView.raycast(from: point, allowing: .estimatedPlane, alignment: .vertical).first else {
+            status = "Move closer and point at the wall"
+            return
+        }
+        let t = hit.worldTransform
+        let c = SIMD3<Float>(t.columns.3.x, t.columns.3.y, t.columns.3.z)
+        // a wall hit's normal is its y axis; keep it level and pointing back at you
+        var z = SIMD3<Float>(t.columns.1.x, 0, t.columns.1.z)
+        if simd_length(z) < 0.1 { z = SIMD3(t.columns.2.x, 0, t.columns.2.z) }
+        z = simd_normalize(z)
+        if simd_dot(z, arView.cameraTransform.translation - c) < 0 { z = -z }
+        let up = SIMD3<Float>(0, 1, 0)
+        frame = WallFrame(x: simd_cross(up, z), z: z, c: c, length: Float(quickWidth / 1000), floorY: floorY(below: c), height: Float(quickCeiling / 1000))
+        along = 0
+        out = 0
+        widthChoice = nil
+        replan()
+    }
+
+    /// The floor: the lowest horizontal plane ARKit has found, else about 1.45 m below the phone.
+    private func floorY(below p: SIMD3<Float>) -> Float {
+        let floors = (arView.session.currentFrame?.anchors ?? []).compactMap { $0 as? ARPlaneAnchor }
+            .filter { $0.alignment == .horizontal }.map { $0.transform.columns.3.y }
+        return floors.min() ?? (arView.cameraTransform.translation.y - 1.45)
+    }
+
+    /// New free width or ceiling height in quick place: same spot, planned again.
+    func setQuick(width: Double? = nil, ceiling: Double? = nil) {
+        if let width { quickWidth = width }
+        if let ceiling { quickCeiling = ceiling }
+        guard let f = frame, quick else { return }
+        frame = WallFrame(x: f.x, z: f.z, c: f.c, length: Float(quickWidth / 1000), floorY: f.floorY, height: Float(quickCeiling / 1000))
+        replan()
     }
 
     // MARK: scan
 
     func startScan() {
-        guard RoomCaptureSession.isSupported else { phase = .unsupported; return }
+        guard RoomCaptureSession.isSupported else { startQuickPlace(); return }   // no LiDAR: quick place instead
+        quick = false
         cabinet?.removeFromParent()
         cabinet = nil
         roomAnchor.children.removeAll()
@@ -230,6 +290,7 @@ final class ARController: ObservableObject {
 
     private func tapped(at point: CGPoint) {
         if phase == .placed, let hit = arView.entity(at: point) { toggleFront(hit); return }
+        if phase == .quickPlace { quickTap(point); return }
         guard phase == .pickWall, let hit = arView.entity(at: point), let w = walls[hit.name] else { return }
         place(on: w)
     }
@@ -342,8 +403,10 @@ final class ARController: ObservableObject {
 
     /// Ask the engine for the best build for this wall's clear space and height, then show it.
     func replan() {
-        guard let w = wall, let f = frame, let room else { return }
-        var (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room)
+        guard let f = frame else { return }
+        // a scanned wall knows its doors, windows and fixtures; a quick-placed one is clear space
+        var (obstacles, sinkAt): ([PlanInput.Obstacle], Double?) = ([], nil)
+        if let w = wall, let room { (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room) }
         builtInsOnWall = obstacles.contains { $0.kind == "storage" }
         if replaceBuiltIns { obstacles.removeAll { $0.kind == "storage" } }
         let input = PlanInput(project: project, wallLength: Double(f.length * 1000), wallHeight: Double(f.height * 1000),
@@ -363,7 +426,7 @@ final class ARController: ObservableObject {
         } catch {
             status = error.localizedDescription
             notes = []
-            phase = .pickWall
+            phase = quick ? .quickPlace : .pickWall
         }
     }
 
@@ -451,6 +514,7 @@ final class ARController: ObservableObject {
     }
 
     func pickAnotherWall() {
+        if quick { startQuickPlace(); return }
         showWalls()
     }
 }

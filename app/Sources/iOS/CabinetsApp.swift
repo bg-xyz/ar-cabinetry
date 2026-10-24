@@ -63,10 +63,24 @@ struct ContentView: View {
                            selected: ar.project, large: true) { ar.project = $0 }
                     .padding(.horizontal, -16)
                 Button { ar.startScan() } label: {
-                    BigButtonLabel(text: ar.current.ready ? "Scan the room" : "\(ar.current.name) is coming soon", enabled: ar.current.ready)
+                    BigButtonLabel(text: !ar.current.ready ? "\(ar.current.name) is coming soon" : ARController.hasLiDAR ? "Scan the room" : "Place it on a wall", enabled: ar.current.ready)
                 }
                 .buttonStyle(.plain)
                 .disabled(!ar.current.ready)
+                if ARController.hasLiDAR && ar.current.ready {
+                    Button("No scan: tap a wall instead") { ar.startQuickPlace() }
+                        .font(.footnote.weight(.medium)).frame(maxWidth: .infinity)
+                }
+            }
+        case .quickPlace:
+            Panel(glass: true) {
+                Caps("\(ar.current.name) · quick place")
+                Text("Tap the wall where it goes. How much of the wall is free there?").font(.callout)
+                RollPicker(items: stride(from: 30, through: 168, by: 6).map { .init(id: String($0), title: "\($0 / 12)' \($0 % 12)\"", detail: "free wall") },
+                           selected: String(Int((ar.quickWidth / 25.4).rounded()))) { ar.setQuick(width: (Double($0) ?? 72) * 25.4) }
+                    .padding(.horizontal, -16)
+                Button("Scan the room instead") { ar.startScan() }.font(.footnote.weight(.medium))
+                    .opacity(ARController.hasLiDAR ? 1 : 0)
             }
         case .scanning:
             Panel(glass: true) {
@@ -134,6 +148,14 @@ struct ContentView: View {
             RollPicker(items: items(for: tab), selected: selected(for: tab)) { pick(tab, $0) }
                 .id(tab)   // a fresh strip per tab
                 .padding(.horizontal, -16)
+            if ar.quick {
+                HStack {
+                    Text("Free wall").font(.footnote)
+                    Spacer()
+                    Stepper("\(Int((ar.quickWidth / 25.4).rounded()))\"", value: Binding(get: { ar.quickWidth / 25.4 }, set: { ar.setQuick(width: $0 * 25.4) }), in: 24...168, step: 6)
+                        .font(.footnote.weight(.medium)).fixedSize()
+                }
+            }
             HStack(spacing: 8) {
                 nudge("arrow.left") { ar.nudge(along: -1) }
                 nudge("arrow.right") { ar.nudge(along: 1) }

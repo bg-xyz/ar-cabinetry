@@ -32,8 +32,9 @@ designs real (buildable, priced), which is what turns "cool AR toy" into "I'm ac
 3. ~~Assembly film~~ **Done (2026-10-24):** "Watch it build" (hammer button on iPhone, a button on Vision Pro): the
    piece assembles itself in maker's order, the back sliding down its groove, fronts landing with their pulls.
    Screen-record it to share. Next: record it in-app (ReplayKit) with the caption burned in.
-4. **No-LiDAR mode**: most iPhones don't have LiDAR. Plane detection works on every ARKit iPhone; let people tap a wall
-   and enter or two-tap its width. Multiplies the audience.
+4. ~~No-LiDAR mode~~ **Done (2026-10-24, untested on a phone):** "Quick place" works on every ARKit iPhone: tap a wall
+   (ARKit plane raycast), flick the free-wall slider (2'6" to 14'), and it's planned and placed; the floor comes from
+   the lowest detected horizontal plane. On LiDAR phones it's the "No scan" shortcut. Next: a reticle on the wall.
 5. **Saved designs** ("My rooms"): keep every design with its wall and photo; reopen in AR later.
 6. **Measure confirm**: show the key number ("This wall: 9' 4\"") with -/+ to correct it. Trust, and fewer bad cuts.
 7. **Get it made**: one button that sends the job package (DXF, cut list, quote) to a maker, or joins the waitlist in
