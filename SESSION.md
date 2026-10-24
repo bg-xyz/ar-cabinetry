@@ -180,3 +180,17 @@ Blake has an **iPhone 12 Pro** (LiDAR, RoomPlan supported). He OK'd the placehol
 - **Joint fit is a shop setting**: `dadoFit` 0.4mm (0.016"), `grooveFit` 0.5mm (0.020"), `depthFit` 0.5mm (captured panel ends stop short of the dado bottom for glue). Was 0.2/0.3 (metal thinking). Research: forum practice is +0.005-0.010", some to 0.015-0.02"; everyone says measure the sheet and test-cut.
 - **`fit-test.dxf`** in every job package (coupon strips, +0.1 to +0.6mm slots, labelled) + a "Joint fit" line in the job sheet's checklist + VCARVE.md section.
 - Tests: 121 pass (`test/match.test.ts`: dresser face on one panel and mirrored, waterfall stacks, bottoms side by side one cutter apart, wide faces split by cabinet, matching off never uses more plywood).
+
+---
+
+## 2026-10-23 night (cont.): design refresh + generated photography
+
+**Blake:** make the site and app cleaner and more 2026, with a nod to midcentury European high style (posh); generate images with ElevenLabs if there are credits.
+
+**Done:**
+- `DESIGN.md`: the design language. Instrument Serif (Didone, italics for one or two words) + Jost (Futura revival) in tracked small caps; warm paper / bone / espresso ink, walnut, teak, brass, one Braun-orange signal dot; hairline rules, numbered sections, catalogue-plate captions, small radii; light + dark.
+- Style presets renamed for display (ids unchanged): **Copenhagen** (classic-euro), **Basel** (ply-inset), **Vienna** (recessed-inset), **Milano** (milan-flush). Engine, job sheets, app menus.
+- **Site rewritten** (`site/index.html`): "Make *room.*" hero with the dresser photo; 01-04 steps; The collection (bookcase + vanity plates, spec facts); The craft (grain matching + fit, with an SVG schematic of the matched face); four cities; live 3D (now leads with the dresser); makers; open source band; status. Dark mode, phone layout checked at 390px (no sideways scroll).
+- **Photography** (ElevenLabs Image & Video, GPT Image 2.5, 3:2, our own renders as reference so the piece shown is the piece cut): dresser in a Copenhagen bedroom, bookcase in a Milan living room, vanity in a Viennese terrazzo bathroom. 6 images for ~6 of the plan's ~100 image generations. Raw PNGs in `marketing/gen/` (gitignored), web JPGs in `site/img/photo-*.jpg`, new `og.jpg`. Labelled "Visualisation" on the site. `marketing/PROMPTS.md` has the recipe.
+- **App restyled** (`CabinetsApp.swift`): `Theme` (brass tint, walnut, paper), New York serif titles, tracked small-caps labels, squared tiles and chips, a walnut "Scan the room ->" button; the placed panel reads like a catalogue plate (serif name, "Copenhagen · grain across", first note + Details) with a 4-column chip grid (Build, Style, Width, Grain, Fronts, Cabinet, Top).
+- ElevenLabs: about 21% of the month's credits were left before this (Creator plan; renews Nov 17, the reminder to cancel still stands).

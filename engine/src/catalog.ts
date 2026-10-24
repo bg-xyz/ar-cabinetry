@@ -6,9 +6,10 @@ export function lookup<T>(table: Record<string, T>, id: string, what: string): T
   return item;
 }
 
-// Style presets from STYLES.md. A preset is only a set of switch positions.
+// Style presets from STYLES.md. A preset is only a set of switch positions. Display names are cities
+// (DESIGN.md): Copenhagen = full overlay, Basel = ply-framed inset, Vienna = recessed inset, Milano = flush.
 const base: Style = {
-  name: 'Classic Euro',
+  name: 'Copenhagen',
   mount: 'overlay',
   insetSetback: 0,
   grip: 'pull',
@@ -38,9 +39,9 @@ const base: Style = {
 
 export const STYLE_PRESETS: Record<string, Style> = {
   'classic-euro': base,
-  'ply-inset': { ...base, name: 'Ply Inset', mount: 'inset', hinge: 'blum-cliptop-110-inset' },
-  'recessed-inset': { ...base, name: 'Recessed Inset', mount: 'inset', insetSetback: 15, hinge: 'blum-cliptop-110-inset' },
-  'milan-flush': { ...base, name: 'Milan Flush (push-to-open)', grip: 'push', pull: 'none' },
+  'ply-inset': { ...base, name: 'Basel', mount: 'inset', hinge: 'blum-cliptop-110-inset' },
+  'recessed-inset': { ...base, name: 'Vienna', mount: 'inset', insetSetback: 15, hinge: 'blum-cliptop-110-inset' },
+  'milan-flush': { ...base, name: 'Milano', grip: 'push', pull: 'none' },
 };
 
 export function resolveStyle(input: (Partial<Style> & { preset?: string }) | undefined): Style {

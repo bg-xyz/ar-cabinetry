@@ -104,3 +104,7 @@ Vanity v0 starts with: **Classic Euro**, wall-hung, exposed ply. Inset and flute
 - Exposed ply fronts: [Dezeen: Plykea](https://www.dezeen.com/2017/05/12/plykea-hacks-ikea-metod-kitchen-plywood-front-design/amp/), [Nakedkitchens birch ply front](https://www.nakedkitchens.com/us/collections/products/birch-ply-scandi-front), [GBA: exposed-edge ply cabinetry](https://www.greenbuildingadvisor.com/question/kerf-designs-plywood-cabinetry-with-exposed-edge-details)
 - Bases and floating: [Homes & Gardens: toe kicks vs plinths](https://www.homesandgardens.com/news/toe-kicks-versus-plinths), [WOODWEB: supporting floating base cabinets](https://woodweb.com/knowledge_base/How_to_Support_Floating.html)
 - Front trends: [Domino: 2026 cabinet styles](https://www.domino.com/design-by-room/best-kitchen-cabinet-style-2026), [Ideal Home: 2026 trends](https://www.idealhome.co.uk/all-rooms/kitchen/kitchen-cabinet-trends-2026)
+
+
+## Display names (2026-10-23)
+The presets are shown under city names (see `DESIGN.md`): **Copenhagen** = classic-euro (full overlay), **Basel** = ply-inset, **Vienna** = recessed-inset, **Milano** = milan-flush. Preset ids are unchanged.

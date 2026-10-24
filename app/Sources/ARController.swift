@@ -39,8 +39,10 @@ final class ARController: ObservableObject {
         ("Off", "off", "Best yield, no matching"),
     ]
 
-    static let styles: [(name: String, preset: String)] = [
-        ("Classic Euro", "classic-euro"), ("Milan flush", "milan-flush"), ("Recessed inset", "recessed-inset"), ("Ply inset", "ply-inset"),
+    /// The four presets, named for cities (DESIGN.md), with what each one is.
+    static let styles: [(name: String, preset: String, hint: String)] = [
+        ("Copenhagen", "classic-euro", "Full-overlay slab fronts"), ("Basel", "ply-inset", "The plywood box frames each front"),
+        ("Vienna", "recessed-inset", "Fronts set back, a shadow line"), ("Milano", "milan-flush", "Flush, push to open"),
     ]
 
     @Published var phase: Phase = .start
