@@ -357,6 +357,42 @@ extension CabinetBuilder {
     /// swings on its hinges. `body` is the build's body entity (the root's first child). Returns false
     /// when the touch wasn't on a front.
     @discardableResult
+    /// "Show the math": each drawer front in a stack wears its height as a multiple of the top drawer's
+    /// (1, 1.174, 1.378, 1.618 ...), in brass, so you can see the golden ratio on the piece itself.
+    /// The labels ride on the fronts (they open with the drawers). Remove with `hideMath`.
+    static func showMath(_ design: Design, body: Entity) {
+        hideMath(body)
+        let drawers = design.parts.filter { $0.role == "drawerFront" }
+        let stacks = Dictionary(grouping: drawers) { $0.id.components(separatedBy: "-").first ?? "" }
+        let brass = UnlitMaterial(color: UIColor(red: 0.85, green: 0.72, blue: 0.45, alpha: 1))
+        for (_, stack) in stacks where stack.count >= 2 {
+            let sorted = stack.sorted { $0.box.min[1] < $1.box.min[1] }
+            guard let top = sorted.last?.box.size[1], top > 0 else { continue }
+            for f in sorted {
+                guard let host = body.findEntity(named: f.id) else { continue }
+                var text = String(format: "%.3f", f.box.size[1] / top)
+                while text.hasSuffix("0") { text.removeLast() }
+                if text.hasSuffix(".") { text.removeLast() }
+                let size = CGFloat(min(0.045, max(0.022, f.box.size[1] / 1000 * 0.28)))
+                let mesh = MeshResource.generateText(text, extrusionDepth: 0.0008, font: .systemFont(ofSize: size, weight: .medium),
+                                                     containerFrame: .zero, alignment: .left, lineBreakMode: .byClipping)
+                let label = ModelEntity(mesh: mesh, materials: [brass])
+                label.name = "math"
+                // lower-left of the front, just proud of its face
+                label.position = SIMD3<Float>(Float(f.box.lo.x / 1000) + 0.035, Float(f.box.lo.y / 1000) + 0.03 - mesh.bounds.min.y, Float(f.box.hi.z / 1000) + 0.002)
+                host.addChild(label)
+            }
+        }
+    }
+
+    static func hideMath(_ body: Entity) {
+        var stack = [body]
+        while let e = stack.popLast() {
+            for c in e.children where c.name == "math" { c.removeFromParent() }
+            stack.append(contentsOf: e.children)
+        }
+    }
+
     static func toggleFront(_ hit: Entity, design: Design, body: Entity, opened: inout Set<String>) -> Bool {
         var e: Entity? = hit
         var part: Design.Part?

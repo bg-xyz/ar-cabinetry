@@ -215,10 +215,17 @@ struct ContentView: View {
             }
             Caps("\(styleName) · \(grainName == "Off" ? "unmatched" : "grain \(grainName.lowercased())") · tap a drawer to open it")
             if let line = ar.plan?.proportion {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\u{03C6}").font(Theme.serif(17, italic: true)).foregroundStyle(Theme.brass)
-                    Text(line).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                // tap to see the ratios on the piece itself
+                Button { ar.toggleMath() } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\u{03C6}").font(Theme.serif(17, italic: true)).foregroundStyle(Theme.brass)
+                        Text(line + (ar.showMath ? "" : " Tap to see it on the piece."))
+                            .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.leading)
+                    }
                 }
+                .buttonStyle(.plain)
+                .accessibilityHint("Shows each drawer's height as a multiple of the top drawer")
             }
             ForEach(Array((showDetails ? ar.notes : Array(ar.notes.prefix(2))).enumerated()), id: \.offset) { _, note in
                 Text(note).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

@@ -281,3 +281,24 @@ be used on if its not a finished side". Before this the engine had only a hangin
   then extend CI: fetch signing files for visionOS and `xcodebuild archive` + upload the PlywiseVision target.
 - Friends group: builds 9/10 still WAITING_FOR_BETA_REVIEW; when clear: `python tools/asc.py friends 23 "..."`.
 - GROWTH.md items 5+: saved designs, measure confirm, get-it-made, before/after, light matching, sound, closets.
+
+## 2026-10-24 (afternoon): proportion, saved rooms, offices and cafés
+
+Blake: proportions are the key (drawer to drawer relationships, lines that flow), use and market the golden ratio;
+run my own synthetic testing; anchor saved designs in place so you can walk room to room; the engine works for offices
+and coffee shops too; export for editing in another (AI) tool. Mill testing can wait. Marketing note from Blake:
+proportion used to be what people paid designers and architects for; good design calms the eye.
+
+- Engine: `proportion.ts` (golden graduation, aligned top drawer line, golden widths, scaled pulls, `rhythm`,
+  `pullSizing`), `critic.ts` (8 rules), `tools/elevations.ts`. The critic found two real flaws on first run (43" dresser
+  drawer fronts on squeezed walls, 26" single console doors): fixed in the planner. Desk + coffee bar planners, knee
+  spaces in runs. Samples `desk-72-walnut`, `bar-84-oak`.
+- Share page: .glb / .usdz downloads, edit-with-any-AI round trip (tested: edited JSON reloads; bad JSON says why).
+- App: saved rooms (iPhone world maps, Vision world anchors), proportion line + "Show the math", desk + coffee bar
+  in the picker, "Edit in Blender or any AI" in the share menu. Build 25 = proportions + saved rooms.
+- Site: "Beauty in the math" section, seven pieces, desk + coffee bar facts.
+- 176 tests, fuzz 4000 plans 0 problems / 0 critic flags, DXF audit 12 jobs 0 errors.
+
+**Next:** Blake tests saved rooms on the phone (save in one room, walk to another, come back and open it). Recommend
+Blender (free) for editing exports. Ideas queued: wall-hung open shelves above a counter (a second run: café back bar,
+kitchen uppers), golden overlay on the site 3D viewer, closets.

@@ -49,6 +49,7 @@ final class VisionModel {
     var wallHeight = 2440.0
     var version = 0           // bumps on every change, so the 3D views rebuild
     var assembleToken = 0     // bumps for "Watch it build"
+    var showMath = false      // golden-ratio labels on the drawer fronts
 
     var current: Builds.Kind { Builds.projects.first { $0.id == project } ?? Builds.projects[0] }
 
@@ -88,6 +89,7 @@ final class VisionModel {
         for case let m as ModelEntity in e.descendants { m.components.set(GroundingShadowComponent(castsShadow: true)) }
         e.generateCollisionShapes(recursive: true)
         e.components.set(InputTargetComponent())
+        if showMath, let body = e.children.first { CabinetBuilder.showMath(design, body: body) }
         return e
     }
 
@@ -180,6 +182,7 @@ struct VisionHome: View {
                 HStack(spacing: 14) {
                     Button { openWindow(id: "piece") } label: { Label("See it in 3D", systemImage: "cube.transparent") }
                     Button { model.assembleToken += 1 } label: { Label("Watch it build", systemImage: "hammer") }
+                    Button { model.showMath.toggle(); model.version += 1 } label: { Label(model.showMath ? "Hide the math" : "Show the math", systemImage: "function") }
                     Button {
                         Task {
                             if inRoom { await dismissImmersiveSpace(); inRoom = false }

@@ -41,6 +41,8 @@ final class ARController: ObservableObject {
     @Published var saved: [SavedPiece] = SavedRooms.load()
     @Published var finding: SavedPiece?
     @Published var findingSlow = false
+    /// "Show the math": golden-ratio labels on the drawer fronts.
+    @Published var showMath = false
     /// The wall a saved piece was planned for (its doors, windows, fixtures), when there's no live scan.
     private var savedWall: (obstacles: [PlanInput.Obstacle], sinkAt: Double?)?
 
@@ -455,6 +457,7 @@ final class ARController: ObservableObject {
         cabinetAnchor.addChild(e)
         cabinet = e
         opened = []
+        if showMath, let body = e.children.first { CabinetBuilder.showMath(design, body: body) }
         position()
     }
 
@@ -469,6 +472,13 @@ final class ARController: ObservableObject {
         along += dx * 0.0254
         out = max(0, out + dz * 0.0254)
         position()
+    }
+
+    func toggleMath() {
+        showMath.toggle()
+        guard let design, let body = cabinet?.children.first else { return }
+        if showMath { CabinetBuilder.showMath(design, body: body) } else { CabinetBuilder.hideMath(body) }
+        tick.impactOccurred(intensity: 0.6)
     }
 
     func setStyle(_ preset: String) {
