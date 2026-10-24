@@ -247,10 +247,23 @@ it as "No scan"), **kitchen islands** (`planIsland`: 48-90", finished back + end
 overhang, placed 42" in front of 25" counters facing them; shared `CabinetBuilder.placement` turns it round), island
 photo on the site. Build **21** on TestFlight (internal); Vision Pro compiles in CI on every push.
 
+**Last stretch (2026-10-24 morning):**
+- **Debugging pass.** `engine/test/fuzz.ts` (`node test/fuzz.ts [runs] [seed]`: random walls, obstacles, ceilings,
+  styles, grain, every build). It found tops longer than a sheet on forced widths (fixed: `capToSheet`, 2400 mm max)
+  and islands refused when the counter wall had a door (fixed: an island spans the whole wall). Now 3000 plans,
+  0 problems. DXF audit of all 10 sample jobs: 67 files, 0 errors. Console: only a favicon 404 (inline SVG
+  favicon now). Swift review: post-scan AR config was missing plane detection (quick place floor), Vision volume
+  now rebuilds explicitly when the design changes.
+- **Film.** New coffee nook design (`specs/nook-60-coffee.json`: 60" two-bay white oak, recessed walnut doors) +
+  nook stills and a push-in video; kitchen island glide video. `site/img/film-plywise.mp4` = dresser -> nook ->
+  island -> dresser (0.8 s dissolves, seamless loop, 13.75 s, 2.75 MB) with a caption that follows the scene.
+- iPhone build **23** uploaded (commit 0c5f832); Vision Pro **BUILD SUCCEEDED**; site deployed.
+- ElevenLabs left this month: about 8 videos, ~77 images (renews Nov 17; cancel reminder stands).
+
 **Next session:**
-- Blake: test build 21 (quick place, sliders, glass home, tap-to-open, Watch it build, share link, island). On
+- Blake: test build 23 (quick place, sliders, glass home, tap-to-open, Watch it build, share link, island). On
   Safari, try plywise.xyz demos full screen -> "View in your room" (AR Quick Look, untested on a phone).
 - Vision Pro on TestFlight: in App Store Connect add the visionOS platform to the Plywise app (+ Add Platform),
   then extend CI: fetch signing files for visionOS and `xcodebuild archive` + upload the PlywiseVision target.
-- Friends group: builds 9/10 still WAITING_FOR_BETA_REVIEW; when clear: `python tools/asc.py friends 21 "..."`.
+- Friends group: builds 9/10 still WAITING_FOR_BETA_REVIEW; when clear: `python tools/asc.py friends 23 "..."`.
 - GROWTH.md items 5+: saved designs, measure confirm, get-it-made, before/after, light matching, sound, closets.
