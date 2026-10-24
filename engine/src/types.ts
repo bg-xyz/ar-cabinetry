@@ -115,6 +115,8 @@ export interface Pull {
   thru?: boolean;        // face-mounted pull: through holes, screws from the back
   size?: Vec3;           // for the 3D model
   fromOpeningEdge?: number; // doors: pull centre distance from the opening edge
+  family?: string;       // pulls of one design in several lengths: drawers pick theirs by front width
+  length?: number;       // hole centres, mm
   buy?: string | null;
   verify?: string;
 }
@@ -188,6 +190,8 @@ export interface Style {
   insetSetback: number;   // inset only: how far fronts sit back from the carcass edge
   grip: Grip;
   grainMatch: GrainMatch;
+  rhythm?: 'golden' | 'even';
+  pullSizing?: 'scale' | 'fixed'; // drawer pulls about a third of the front's width (default), or all the same // drawer stacks: graduated by the golden ratio (default) or all equal
   edges: Edges;
   bandThickness: number;  // mm; 0.5 = pre-glued wood veneer tape (iron-on or edge bander), no size deduction
   gap: number;            // between fronts

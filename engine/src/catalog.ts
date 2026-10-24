@@ -15,6 +15,7 @@ const base: Style = {
   insetSetback: 0,
   grip: 'pull',
   grainMatch: 'across',
+  rhythm: 'golden',
   edges: 'banded',
   bandThickness: 0.5,
   gap: 3,

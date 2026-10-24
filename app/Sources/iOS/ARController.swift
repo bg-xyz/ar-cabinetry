@@ -12,7 +12,7 @@ import UIKit
 /// share one coordinate system: nothing has to be re-aligned after the scan.
 @MainActor
 final class ARController: ObservableObject {
-    enum Phase { case start, scanning, processing, pickWall, quickPlace, placed, unsupported }
+    enum Phase { case start, scanning, processing, pickWall, quickPlace, placed, finding, unsupported }
 
     // what you can build, the styles and the grain choices are shared with Vision Pro (Shared/Options.swift)
     typealias Project = Builds.Kind
@@ -37,6 +37,12 @@ final class ARController: ObservableObject {
     /// The scan found cabinets or other built-ins on this wall. The user says whether they stay.
     @Published var builtInsOnWall = false
     @Published var replaceBuiltIns = false
+    /// Designs saved where they stand (SavedRooms.swift); the one being found again, if any.
+    @Published var saved: [SavedPiece] = SavedRooms.load()
+    @Published var finding: SavedPiece?
+    @Published var findingSlow = false
+    /// The wall a saved piece was planned for (its doors, windows, fixtures), when there's no live scan.
+    private var savedWall: (obstacles: [PlanInput.Obstacle], sinkAt: Double?)?
 
     var current: Project { Self.projects.first { $0.id == project } ?? Self.projects[0] }
 
@@ -87,6 +93,7 @@ final class ARController: ObservableObject {
         wall = nil
         frame = nil
         quick = true
+        savedWall = nil
         notes = []
         phase = .quickPlace
         status = "Point at the wall, then tap where the \(current.noun) goes"
@@ -133,6 +140,7 @@ final class ARController: ObservableObject {
     func startScan() {
         guard RoomCaptureSession.isSupported else { startQuickPlace(); return }   // no LiDAR: quick place instead
         quick = false
+        savedWall = nil
         cabinet?.removeFromParent()
         cabinet = nil
         roomAnchor.children.removeAll()
@@ -408,6 +416,7 @@ final class ARController: ObservableObject {
         // a scanned wall knows its doors, windows and fixtures; a quick-placed one is clear space
         var (obstacles, sinkAt): ([PlanInput.Obstacle], Double?) = ([], nil)
         if let w = wall, let room { (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room) }
+        else if let s = savedWall { (obstacles, sinkAt) = s }
         builtInsOnWall = obstacles.contains { $0.kind == "storage" }
         if replaceBuiltIns { obstacles.removeAll { $0.kind == "storage" } }
         let input = PlanInput(project: project, wallLength: Double(f.length * 1000), wallHeight: Double(f.height * 1000),
@@ -418,7 +427,7 @@ final class ARController: ObservableObject {
             plan = p
             if choice == nil { choice = FinishChoice(design: d) }
             design = d
-            notes = p.notes
+            notes = p.notes.filter { $0 != p.proportion }   // the panel shows proportion on its own line
             roomAnchor.isEnabled = false
             rebuild()
             if phase != .placed { tick.impactOccurred(intensity: 0.8) }   // it just landed on the wall
@@ -514,8 +523,134 @@ final class ARController: ObservableObject {
     }
 
     func pickAnotherWall() {
-        if quick { startQuickPlace(); return }
+        if quick || room == nil { startQuickPlace(); return }
         showWalls()
+    }
+
+    // MARK: saved rooms (anchored where they stand)
+
+    /// The room name a new save suggests: what this build is usually for.
+    var suggestedRoom: String { current.room.components(separatedBy: ",").first ?? current.room }
+
+    /// Saves this design with a map of the room and an anchor where it stands. Calls back with what to tell the user.
+    func saveHere(room roomName: String, _ done: @escaping (String) -> Void) {
+        guard let plan, let choice, let f = frame, let cabinet else { done("Place a design first."); return }
+        if let mapping = arView.session.currentFrame?.worldMappingStatus, mapping == .notAvailable {
+            done("Look around the room for a few seconds so Plywise can learn it, then save again.")
+            return
+        }
+        let id = UUID()
+        let t = cabinet.transformMatrix(relativeTo: nil)
+        let anchor = ARAnchor(name: "plywise-\(id.uuidString)", transform: t)
+        arView.session.add(anchor: anchor)
+        var (obstacles, sinkAt): ([PlanInput.Obstacle], Double?) = savedWall ?? ([], nil)
+        if let w = wall, let room { (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room) }
+        let input = PlanInput(project: project, wallLength: Double(f.length * 1000), wallHeight: Double(f.height * 1000),
+                              obstacles: obstacles, sinkAt: sinkAt, width: widthChoice, style: style)
+        let piece = SavedPiece(id: id, room: roomName.isEmpty ? suggestedRoom : roomName, name: plan.name.capitalizingFirst, project: project,
+                               saved: Date(), input: input, stylePreset: stylePreset, grainChoice: grainChoice, widthChoice: widthChoice,
+                               replaceBuiltIns: replaceBuiltIns, fronts: choice.fronts, cabinet: choice.cabinet, top: choice.top,
+                               frame: f, anchor: t.floats, along: along, out: out, quick: quick)
+        arView.snapshot(saveToHDR: false) { [weak self] photo in
+            self?.arView.session.getCurrentWorldMap { map, error in
+                Task { @MainActor in
+                    guard let self else { return }
+                    guard let map else {
+                        done("Couldn't save the room yet: look around a bit more, then try again. (\(error?.localizedDescription ?? "no map"))")
+                        return
+                    }
+                    if !map.anchors.contains(where: { $0.name == piece.anchorName }) { map.anchors.append(anchor) }
+                    do {
+                        try SavedRooms.write(map: map, photo: photo, for: id)
+                        self.saved.insert(piece, at: 0)
+                        SavedRooms.store(self.saved)
+                        self.tick.impactOccurred()
+                        done("Saved in \(piece.room). Open it from the home screen next time you're in there.")
+                    } catch {
+                        done("Couldn't save: \(error.localizedDescription)")
+                    }
+                }
+            }
+        }
+    }
+
+    func deleteSaved(_ piece: SavedPiece) {
+        saved.removeAll { $0.id == piece.id }
+        SavedRooms.store(saved)
+        SavedRooms.remove(piece.id)
+    }
+
+    /// Opens a saved piece: ARKit recognises the room from its map, then the piece comes back on its wall.
+    func open(_ piece: SavedPiece) {
+        guard let map = SavedRooms.map(for: piece.id) else { status = "That room's map is missing."; return }
+        session?.stop(pauseARSession: false)
+        session = nil
+        cabinet?.removeFromParent()
+        cabinet = nil
+        roomAnchor.children.removeAll()
+        room = nil
+        wall = nil
+        notes = []
+        finding = piece
+        findingSlow = false
+        phase = .finding
+        status = ""
+        let config = ARWorldTrackingConfiguration()
+        config.environmentTexturing = .automatic
+        config.planeDetection = [.horizontal, .vertical]
+        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) { config.sceneReconstruction = .mesh }
+        config.initialWorldMap = map
+        arView.session.run(config, options: [.resetTracking, .removeExistingAnchors])
+        let started = Date()
+        Task { [weak self] in
+            while let self, self.phase == .finding, self.finding?.id == piece.id {
+                if let found = self.foundAnchor(named: piece.anchorName) {
+                    self.restore(piece, anchor: found)
+                    return
+                }
+                if Date().timeIntervalSince(started) > 20 { self.findingSlow = true }
+                try? await Task.sleep(nanoseconds: 300_000_000)
+            }
+        }
+    }
+
+    /// The saved anchor, once ARKit has recognised the room and is tracking normally.
+    private func foundAnchor(named name: String) -> simd_float4x4? {
+        guard let f = arView.session.currentFrame, case .normal = f.camera.trackingState else { return nil }
+        return f.anchors.first { $0.name == name }?.transform
+    }
+
+    func cancelFinding() {
+        finding = nil
+        phase = .start
+        status = ""
+    }
+
+    private func restore(_ piece: SavedPiece, anchor now: simd_float4x4) {
+        guard let then = simd_float4x4(floats: piece.anchor) else { return }
+        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) { arView.environment.sceneUnderstanding.options.insert(.occlusion) }
+        frame = piece.frame.moved(by: now * then.inverse)
+        project = piece.project
+        stylePreset = piece.stylePreset
+        grainChoice = piece.grainChoice
+        widthChoice = piece.widthChoice
+        replaceBuiltIns = piece.replaceBuiltIns
+        quick = piece.quick
+        if quick { quickWidth = Double(piece.frame.length * 1000); quickCeiling = Double(piece.frame.height * 1000) }
+        savedWall = (piece.input.obstacles, piece.input.sinkAt)
+        along = piece.along
+        out = piece.out
+        finding = nil
+        choice = nil
+        replan()
+        if var c = choice {
+            c.fronts = piece.fronts
+            c.cabinet = piece.cabinet
+            c.top = piece.top
+            choice = c
+            rebuild()
+        }
+        tick.impactOccurred(intensity: 1)
     }
 }
 

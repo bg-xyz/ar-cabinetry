@@ -30,7 +30,7 @@
         },
         {
           "type": "drawer",
-          "size": 127
+          "size": "fill"
         }
       ]
     },
@@ -54,7 +54,7 @@
         },
         {
           "type": "drawer",
-          "size": 127
+          "size": "fill"
         }
       ]
     }

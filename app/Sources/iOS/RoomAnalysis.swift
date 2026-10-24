@@ -3,7 +3,7 @@ import simd
 
 /// A wall seen from inside the room: x runs left to right as you face it, z points into the room,
 /// c is the wall's centre, length in metres.
-struct WallFrame {
+struct WallFrame: Codable {
     let x: SIMD3<Float>
     let z: SIMD3<Float>
     let c: SIMD3<Float>
@@ -15,6 +15,13 @@ struct WallFrame {
     func along(_ p: SIMD3<Float>) -> Double { Double((simd_dot(p - c, x) + length / 2) * 1000) }
     /// Distance in front of the wall (into the room), metres.
     func out(_ p: SIMD3<Float>) -> Float { simd_dot(p - c, z) }
+
+    /// The same wall after the world has moved by m (a saved room found again).
+    func moved(by m: simd_float4x4) -> WallFrame {
+        func dir(_ v: SIMD3<Float>) -> SIMD3<Float> { let p = m * SIMD4(v, 0); return SIMD3(p.x, p.y, p.z) }
+        func pt(_ v: SIMD3<Float>) -> SIMD3<Float> { let p = m * SIMD4(v, 1); return SIMD3(p.x, p.y, p.z) }
+        return WallFrame(x: dir(x), z: dir(z), c: pt(c), length: length, floorY: pt(SIMD3(c.x, floorY, c.z)).y, height: height)
+    }
 }
 
 enum RoomAnalysis {

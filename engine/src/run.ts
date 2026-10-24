@@ -3,6 +3,7 @@
 
 import { lookup, resolveStyle } from './catalog.ts';
 import { buildCabinet } from './cabinet.ts';
+import { alignRun } from './proportion.ts';
 import { applyBanding } from './edges.ts';
 import { fasten, installKit, installSteps, roomFit, SCRIBE } from './install.ts';
 import type { CabinetOptions } from './cabinet.ts';
@@ -23,13 +24,15 @@ function translate(p: Part, dx: number): Part {
 }
 
 export function designRun(input: RunSpec, cat: Catalog): Design {
-  const spec = specToMm(input);
-  const style = resolveStyle(spec.style);
+  const mm = specToMm(input);
+  const style = resolveStyle(mm.style);
   const warnings: string[] = [];
   const parts: Part[] = [];
   const hardware: HardwareLine[] = [];
   const fixtures: Fixture[] = [];
   const t = lookup(cat.materials, style.carcass, 'material').thickness;
+  // drawer stacks graduated golden, top drawer lines lined up along the run (proportion.ts)
+  const spec = { ...mm, cabinets: alignRun(mm.cabinets, style, t) };
   const bt = lookup(cat.materials, style.back, 'material').thickness;
 
   if (!spec.cabinets.length) throw new Error('A run needs at least one cabinet');

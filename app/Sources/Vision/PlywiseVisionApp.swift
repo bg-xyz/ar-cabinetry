@@ -8,7 +8,9 @@ import SwiftUI
 //   "piece"       a volume with the design at true scale (or scaled to fit), floating caption;
 //                 look at a drawer or door and pinch to open it
 //   "room"        an immersive space: Vision Pro finds your walls, pinch one, and the planner sizes
-//                 the piece to it and stands it there, with its catalogue plate floating above
+//                 the piece to it and stands it there, with its catalogue plate floating above.
+//                 Every placed piece is saved on a world anchor: visionOS remembers where it is, so
+//                 the next time you open the room there, the piece is standing where you left it.
 
 @main
 struct PlywiseVisionApp: App {
@@ -96,6 +98,30 @@ final class VisionModel {
             return .init(id: id, title: name.replacingOccurrences(of: "Painted ", with: "").replacingOccurrences(of: "Natural Baltic birch", with: "Birch"),
                          detail: design.finishes[id]?.paint != nil ? "paint" : "veneer")
         }
+    }
+}
+
+/// A piece left standing in a room, keyed by its visionOS world anchor (the anchor sits on the wall).
+struct VisionSaved: Codable {
+    var project: String
+    var stylePreset: String
+    var grain: String?
+    var fronts: String
+    var cabinet: String
+    var top: String
+    var wallWidth: Float
+    var wallHeight: Float
+
+    private static let key = "visionSaved"
+    static func all() -> [UUID: VisionSaved] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let raw = try? JSONDecoder().decode([String: VisionSaved].self, from: data) else { return [:] }
+        return Dictionary(uniqueKeysWithValues: raw.compactMap { k, v in UUID(uuidString: k).map { ($0, v) } })
+    }
+    static func put(_ id: UUID, _ value: VisionSaved?) {
+        var raw = Dictionary(uniqueKeysWithValues: all().map { ($0.key.uuidString, $0.value) })
+        raw[id.uuidString] = value
+        if let data = try? JSONEncoder().encode(raw) { UserDefaults.standard.set(data, forKey: key) }
     }
 }
 
@@ -261,6 +287,8 @@ struct RoomSpace: View {
     @State private var lib = MaterialLibrary()
     @State private var session = ARKitSession()
     @State private var planes = PlaneDetectionProvider(alignments: [.vertical])
+    @State private var tracking = WorldTrackingProvider()
+    @State private var savedAnchor: UUID?      // the world anchor this session's piece is saved on
     @State private var world = Entity()
     @State private var walls: [UUID: Wall] = [:]
     @State private var placedOn: UUID?
@@ -309,7 +337,8 @@ struct RoomSpace: View {
         }
         .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded { value in tapped(value.entity) })
         .task { await findWalls() }
-        .onChange(of: model.version) { _, _ in if let id = placedOn { place(on: id, replan: false) } }
+        .task { await comeBack() }
+        .onChange(of: model.version) { _, _ in if let id = placedOn { place(on: id, replan: false); remember() } }
         .onChange(of: model.assembleToken) { _, _ in
             guard let id = placedOn else { return }
             place(on: id, replan: false)
@@ -321,7 +350,8 @@ struct RoomSpace: View {
 
     private func findWalls() async {
         guard PlaneDetectionProvider.isSupported else { status = "Wall detection needs a Vision Pro."; return }
-        do { try await session.run([planes]) } catch { status = "Couldn't start wall detection: \(error.localizedDescription)"; return }
+        let providers: [any DataProvider] = WorldTrackingProvider.isSupported ? [planes, tracking] : [planes]
+        do { try await session.run(providers) } catch { status = "Couldn't start wall detection: \(error.localizedDescription)"; return }
         for await update in planes.anchorUpdates {
             let anchor = update.anchor
             guard anchor.classification == .wall else { continue }
@@ -331,6 +361,57 @@ struct RoomSpace: View {
                 world.findEntity(named: "wall-\(anchor.id)")?.removeFromParent()
                 walls[anchor.id] = nil
             }
+        }
+    }
+
+    /// Saved pieces come back: visionOS hands back the world anchors it kept for this place.
+    private func comeBack() async {
+        guard WorldTrackingProvider.isSupported else { return }
+        let saved = VisionSaved.all()
+        for await update in tracking.anchorUpdates {
+            guard case .added = update.event, placedOn == nil, let s = saved[update.anchor.id] else { continue }
+            let t = update.anchor.originFromAnchorTransform
+            func col(_ c: SIMD4<Float>) -> SIMD3<Float> { SIMD3(c.x, c.y, c.z) }
+            walls[update.anchor.id] = Wall(center: col(t.columns.3), x: col(t.columns.0), up: col(t.columns.1), z: col(t.columns.2),
+                                           width: s.wallWidth, height: s.wallHeight)
+            savedAnchor = update.anchor.id
+            model.project = s.project
+            model.stylePreset = s.stylePreset
+            model.grain = s.grain
+            model.choice = nil
+            model.wallLength = Double(s.wallWidth) * 1000
+            model.wallHeight = s.wallHeight > 2.0 ? Double(s.wallHeight) * 1000 : 2440
+            placedOn = update.anchor.id
+            model.replan()
+            model.choice?.fronts = s.fronts
+            model.choice?.cabinet = s.cabinet
+            model.choice?.top = s.top
+            model.version += 1
+            status = "Welcome back. Your \(model.plan?.name ?? "piece") is where you left it."
+        }
+    }
+
+    /// Saves the placed piece on a world anchor at its wall (one per session: a new wall moves it).
+    private func remember() {
+        guard WorldTrackingProvider.isSupported, let id = placedOn, let wall = walls[id], let c = model.choice else { return }
+        let record = VisionSaved(project: model.project, stylePreset: model.stylePreset, grain: model.grain, fronts: c.fronts,
+                                 cabinet: c.cabinet, top: c.top, wallWidth: wall.width, wallHeight: wall.height)
+        if let anchorID = savedAnchor, let saved = walls[anchorID], saved.center == wall.center {
+            VisionSaved.put(anchorID, record)    // same wall: just the new choices
+            return
+        }
+        Task {
+            if let old = savedAnchor {
+                try? await tracking.removeAnchor(forID: old)
+                VisionSaved.put(old, nil)
+            }
+            let anchor = WorldAnchor(originFromAnchorTransform: wall.matrix)
+            do {
+                try await tracking.addAnchor(anchor)
+                VisionSaved.put(anchor.id, record)
+                savedAnchor = anchor.id
+                walls[anchor.id] = wall
+            } catch {}
         }
     }
 

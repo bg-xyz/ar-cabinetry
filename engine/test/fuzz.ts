@@ -1,12 +1,13 @@
 // Fuzz the planner + engine: random walls, obstacles, ceilings, styles and grain settings through every
 // build. Every plan must either refuse cleanly (a "wide enough" style message) or design, cut, nest and
-// assemble without warnings or collisions. Not part of `npm test` (slow); run: node test/fuzz.ts [runs] [seed]
+// assemble without warnings or collisions, and pass the design critic (src/critic.ts). Not part of `npm test` (slow); run: node test/fuzz.ts [runs] [seed]
 import { loadCatalog } from '../src/load.ts';
 import { designRun } from '../src/run.ts';
 import { buildJob } from '../src/job.ts';
 import { plan, PROJECTS } from '../src/planner.ts';
 import type { Obstacle, PlanInput } from '../src/planner.ts';
 import { collisions } from './geometry.ts';
+import { critique } from '../src/critic.ts';
 
 const IN = 25.4;
 const cat = loadCatalog();
@@ -48,7 +49,7 @@ for (let i = 0; i < runs; i++) {
     obstacles,
     sinkAt: rnd() < 0.4 ? between(0, wallLength / IN) * IN : undefined,
     width: rnd() < 0.2 ? between(24, 110) * IN : undefined,
-    style: { preset: pick(presets), grainMatch: pick(grains), frontFinish: pick(finishes), carcassFinish: pick(finishes), topFinish: pick(finishes), leg: pick(legs) },
+    style: { preset: pick(presets), grainMatch: pick(grains), rhythm: pick(['golden', 'golden', 'even'] as const), pullSizing: pick(['scale', 'scale', 'fixed'] as const), frontFinish: pick(finishes), carcassFinish: pick(finishes), topFinish: pick(finishes), leg: pick(legs) },
   };
   let p;
   try { p = plan(input); } catch (e) {
@@ -63,6 +64,8 @@ for (let i = 0; i < runs; i++) {
     buildJob(d, cat, { units: 'in', toolDia: 6.35 });
     const c = collisions(d);
     if (c.length) fail(`collision: ${c[0].replace(/ at .*/, '').replace(/^[A-Z]-/, '').replace(/ x [A-Z]-/, ' x ')}`, input, c[0]);
+    // the design critic: anything the eye would catch is a failure too
+    for (const f of critique(d)) fail(`${input.project} looks wrong (${f.rule}): ${f.message.replace(/^[A-Z]( and [A-Z])?: /, '').replace(/[\d.]+"/g, 'N"').slice(0, 70)}`, input, f.message);
     ok++;
   } catch (e) {
     fail(`design threw: ${(e as Error).message.replace(/[\d.]+ x [\d.]+/, 'N x N').slice(0, 70)}`, input, (e as Error).message);

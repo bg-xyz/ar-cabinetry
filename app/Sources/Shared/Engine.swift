@@ -5,8 +5,8 @@ import JavaScriptCore
 // app with JavaScriptCore. Same code as the web preview and the CNC job files, so what you see in
 // AR is exactly what gets cut. JSON in, JSON out.
 
-struct PlanInput: Encodable {
-    struct Obstacle: Encodable {
+struct PlanInput: Codable {
+    struct Obstacle: Codable {
         let kind: String
         let x0: Double
         let x1: Double
@@ -36,6 +36,7 @@ struct PlanResult: Decodable {
     let specJSON: String?        // the design (RunSpec JSON), for share links
     let standoff: Double?        // islands: their fronts face the wall this far (mm) from it
     let faceWall: Bool?
+    let proportion: String?      // the golden-ratio line + design checks passed (engine/src/critic.ts)
 
     /// plywise.xyz/d/#<base64url design>: opens this design in any browser (3D, finishes, AR Quick Look).
     func shareLink(fronts: String?, cabinet: String?, top: String?) -> URL? {

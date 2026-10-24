@@ -65,7 +65,7 @@ targets:
         CFBundleDisplayName: Plywise
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        NSWorldSensingUsageDescription: Vision Pro finds your walls so your cabinets fit the space and stand where they will be built.
+        NSWorldSensingUsageDescription: Vision Pro finds your walls so your cabinets fit the space, stand where they will be built, and are still there when you come back.
         ITSAppUsesNonExemptEncryption: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true

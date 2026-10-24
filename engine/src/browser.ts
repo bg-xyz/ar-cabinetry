@@ -17,6 +17,7 @@ import prices from '../catalog/prices.json' with { type: 'json' };
 import { designRun } from './run.ts';
 import { model3d } from './model3d.ts';
 import { plan } from './planner.ts';
+import { critique, proportionNote, RULES } from './critic.ts';
 import { cutSheets } from './sheets.ts';
 import type { Sheet } from './nest.ts';
 import type { Catalog, Design, RunSpec } from './types.ts';
@@ -28,7 +29,9 @@ const cat = { materials, hinges, runners, pulls, sinks, faucets, finishes, legs 
 function model(spec: RunSpec) {
   const d = designRun(spec, cat);
   const sheets = cutSheets(d, cat, 6.35, [], true).sheets;
-  return { ...model3d(d, cat, sheets), finishes: cat.finishes, warnings: d.warnings, sheetArea: sheetArea(sheets), cost: cost(d, sheets) };
+  const flags = critique(d);
+  const proportion = { rhythm: d.style.rhythm ?? 'golden', checks: RULES.length, flags: flags.map((f) => f.message), note: proportionNote(d, flags) };
+  return { ...model3d(d, cat, sheets), finishes: cat.finishes, warnings: d.warnings, sheetArea: sheetArea(sheets), cost: cost(d, sheets), proportion };
 }
 
 // What it costs in materials, from the same rough prices the job quote uses (catalog/prices.json).
@@ -74,7 +77,7 @@ export const Plywise = {
     return {
       plan: { project: p.project, x0: p.x0, width: p.width, sinks: p.sinks, span: p.span, spans: p.spans, widthOptions: p.widthOptions,
         standoff: p.standoff, faceWall: p.faceWall ?? false,
-        notes: [p.notes[0], priceNote, ...p.notes.slice(1), s.note], name: p.spec.name,
+        notes: [p.notes[0], priceNote, m.proportion.note, ...p.notes.slice(1), s.note], name: p.spec.name, proportion: m.proportion.note,
         // the design itself, for share links (plywise.xyz/d/#...): numbers to 0.1mm keeps links short
         specJSON: JSON.stringify(p.spec, (_k, v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v)), grainMatch: p.spec.style?.grainMatch ?? 'across', sheets: s.sheets, sheetsUnmatched: s.sheetsUnmatched },
       model: m,

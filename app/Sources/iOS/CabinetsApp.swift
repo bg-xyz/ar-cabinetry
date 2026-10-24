@@ -19,6 +19,9 @@ struct ContentView: View {
     @State private var showDetails = false
     @State private var shareItem: ShareItem?
     @State private var tab: OptionTab = .style
+    @State private var naming = false
+    @State private var roomName = ""
+    @State private var toast: String?
 
     var body: some View {
         ZStack {
@@ -31,6 +34,24 @@ struct ContentView: View {
             .padding()
         }
         .sheet(item: $shareItem) { item in ShareSheet(items: item.items) }
+        .alert("Save it here", isPresented: $naming) {
+            TextField("Room", text: $roomName)
+            Button("Save") { ar.saveHere(room: roomName) { message in show(message) } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Plywise remembers this room. Come back, open it from the home screen, look at the wall and it's there again.")
+        }
+        .overlay(alignment: .top) {
+            if let toast {
+                Pill(text: toast, bold: false).padding(.top, 60).padding(.horizontal)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+    }
+
+    private func show(_ message: String) {
+        withAnimation(.snappy) { toast = message }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { withAnimation(.easeOut) { if toast == message { toast = nil } } }
     }
 
     @ViewBuilder private var topBanner: some View {
@@ -70,6 +91,27 @@ struct ContentView: View {
                 if ARController.hasLiDAR && ar.current.ready {
                     Button("No scan: tap a wall instead") { ar.startQuickPlace() }
                         .font(.footnote.weight(.medium)).frame(maxWidth: .infinity)
+                }
+                if !ar.saved.isEmpty { savedRooms }
+            }
+        case .finding:
+            Panel(glass: true) {
+                Caps("Finding \(ar.finding?.room ?? "the room")")
+                HStack(alignment: .top, spacing: 12) {
+                    if let id = ar.finding?.id, let photo = SavedRooms.photo(for: id) {
+                        Image(uiImage: photo).resizable().scaledToFill().frame(width: 84, height: 112).clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(ar.finding?.name ?? "").font(Theme.serif(22))
+                        Text(ar.findingSlow ? "Still looking. Stand about where you took this photo, turn on the lights, and sweep slowly across the wall."
+                             : "Stand about where you saved it and look slowly around the wall. It appears as soon as Plywise recognises the room.")
+                            .font(.callout).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                HStack {
+                    ProgressView()
+                    Spacer()
+                    Button("Cancel") { ar.cancelFinding() }.font(.footnote.weight(.medium))
                 }
             }
         case .quickPlace:
@@ -113,6 +155,36 @@ struct ContentView: View {
         }
     }
 
+    /// Designs saved where they stand, newest first: tap to find the room again.
+    private var savedRooms: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider().overlay(Theme.rule)
+            Caps("Your rooms")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(ar.saved) { piece in
+                        Button { ar.open(piece) } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                ZStack {
+                                    Rectangle().fill(Theme.rule)
+                                    if let photo = SavedRooms.photo(for: piece.id) { Image(uiImage: photo).resizable().scaledToFill() }
+                                }
+                                .frame(width: 104, height: 78).clipShape(RoundedRectangle(cornerRadius: 6))
+                                Text(piece.room).font(.system(size: 11, weight: .semibold)).tracking(1.2).textCase(.uppercase)
+                                Text(piece.name).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            .frame(width: 104)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button(role: .destructive) { ar.deleteSaved(piece) } label: { Label("Forget this room", systemImage: "trash") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var pickWallHint: String {
         let around: String
         switch ar.project {
@@ -140,6 +212,12 @@ struct ContentView: View {
                 }
             }
             Caps("\(styleName) · \(grainName == "Off" ? "unmatched" : "grain \(grainName.lowercased())") · tap a drawer to open it")
+            if let line = ar.plan?.proportion {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\u{03C6}").font(Theme.serif(17, italic: true)).foregroundStyle(Theme.brass)
+                    Text(line).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }
             ForEach(Array((showDetails ? ar.notes : Array(ar.notes.prefix(2))).enumerated()), id: \.offset) { _, note in
                 Text(note).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
@@ -163,7 +241,18 @@ struct ContentView: View {
                 nudge("arrow.down.to.line") { ar.nudge(out: -0.5) }
                 nudge("arrow.up.to.line") { ar.nudge(out: 0.5) }
                 Spacer()
-                Button("Other wall") { ar.pickAnotherWall() }.font(.footnote.weight(.medium))
+                Button { ar.pickAnotherWall() } label: {
+                    Image(systemName: "arrow.triangle.swap").font(.footnote.weight(.semibold)).frame(width: 38, height: 32)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.rule))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Other wall")
+                Button { roomName = ar.suggestedRoom; naming = true } label: {
+                    Image(systemName: "mappin.and.ellipse").font(.footnote.weight(.semibold)).frame(width: 38, height: 32)
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.rule))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Save it here")
                 Button { ar.watchItBuild() } label: {
                     Image(systemName: "hammer").font(.footnote.weight(.semibold)).frame(width: 38, height: 32)
                         .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.rule))
@@ -277,7 +366,7 @@ struct ContentView: View {
 
     private func nudge(_ icon: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.footnote.weight(.medium)).frame(width: 38, height: 32)
+            Image(systemName: icon).font(.footnote.weight(.medium)).frame(width: 34, height: 32)
                 .overlay(RoundedRectangle(cornerRadius: 4).stroke(Theme.rule))
         }
         .buttonStyle(.plain)

@@ -3,6 +3,7 @@
 // run.ts moves it into place along the wall.
 
 import { lookup } from './catalog.ts';
+import { pullForFront, splitZones } from './proportion.ts';
 import type {
   CabinetSpec, Catalog, Fixture, HardwareLine, Part, Style, Vec3, WorldOp, Zone,
 } from './types.ts';
@@ -90,7 +91,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     ? { x0: t + style.gap, x1: W - t - style.gap, y0: t + style.gap, y1: H - t - style.gap }
     : { x0: opts.endGap?.left ? style.gap : style.endReveal, x1: W - (opts.endGap?.right ? style.gap : style.endReveal),
         y0: style.bottomReveal, y1: H - style.topReveal };
-  const heights = splitHeights(spec.zones, region.y1 - region.y0 - style.gap * (spec.zones.length - 1), spec.id, warnings);
+  const heights = splitHeights(spec.zones, region.y1 - region.y0 - style.gap * (spec.zones.length - 1), style.rhythm, spec.id, warnings);
 
   let y = region.y0;
   const zoneSpans = spec.zones.map((zone, i) => {
@@ -117,11 +118,12 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
   });
 
   const hinge = lookup(cat.hinges, style.hinge, 'hinge');
-  const pull = lookup(cat.pulls, style.pull, 'pull');
+  const basePull = lookup(cat.pulls, style.pull, 'pull');
+  const pull = basePull;
   if (hinge.mount !== style.mount && spec.zones.some((z) => z.type === 'doors'))
     warnings.push(`${spec.id}: hinge "${style.hinge}" is for ${hinge.mount} doors but the style is ${style.mount}`);
 
-  const gripOps = (x0: number, x1: number, y1: number, pullX: number): WorldOp[] => {
+  const gripOps = (x0: number, x1: number, y1: number, pullX: number, pull = basePull): WorldOp[] => {
     if (style.grip === 'groove')
       return [{ kind: 'pocket', from: [x0, y1 - 20, frontBackZ], to: [x1, y1, frontBackZ], depth: ft - 6, note: 'finger groove' }];
     if (style.grip === 'push' || !pull.holes.length) return [];
@@ -135,8 +137,8 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
       return pull.thru ? [hole, { kind: 'hole', at, dia: 11, depth: 3, note: 'pull screw counterbore' }] : [hole];
     });
   };
-  const gripHardware = (n: number) => {
-    if (style.grip === 'pull' && pull.holes.length) hw(pull.name, n, pull.buy);
+  const gripHardware = (n: number, p = basePull) => {
+    if (style.grip === 'pull' && p.holes.length) hw(p.name, n, p.buy);
     if (style.grip === 'push') hw('Blum TIP-ON push-to-open (pick door/drawer version)', n);
   };
 
@@ -181,11 +183,12 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     }
 
     // drawer: front + box + runners
-    const ops = gripOps(region.x0, region.x1, y1, (region.x0 + region.x1) / 2);
+    const dPull = pullForFront(cat.pulls, basePull, region.x1 - region.x0, style.pullSizing);
+    const ops = gripOps(region.x0, region.x1, y1, (region.x0 + region.x1) / 2, dPull);
     add({ id: id(`drawer-${zi + 1}-front`), name: 'Drawer front', role: 'drawerFront', material: style.fronts,
       box: { min: [region.x0, y0, frontBackZ], size: [region.x1 - region.x0, y1 - y0, ft] },
       faceA: '-z', grain: style.grainMatch === 'waterfall' ? 1 : 0, exposed: true, ops });
-    gripHardware(1);
+    gripHardware(1, dPull);
 
     const above = zoneSpans[zi + 1];
     const below = zi > 0 ? fixedTop[zi - 1] : undefined;
@@ -318,13 +321,12 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
   return { parts, hardware, fixtures, warnings, frontDepth: inset ? 0 : ft };
 }
 
-function splitHeights(zones: Zone[], avail: number, cab: string, warnings: string[]): number[] {
+function splitHeights(zones: Zone[], avail: number, rhythm: Style['rhythm'], cab: string, warnings: string[]): number[] {
   const fixed = zones.reduce((a, z) => a + (typeof z.size === 'number' ? z.size : 0), 0);
   const fills = zones.filter((z) => z.size === 'fill').length;
   if (fills) {
-    const each = (avail - fixed) / fills;
-    if (each < 80) throw new Error(`${cab}: fixed front sizes leave only ${Math.round(each)}mm for the 'fill' fronts`);
-    return zones.map((z) => (typeof z.size === 'number' ? z.size : each));
+    if ((avail - fixed) / fills < 80) throw new Error(`${cab}: fixed front sizes leave only ${Math.round((avail - fixed) / fills)}mm for the 'fill' fronts`);
+    return splitZones(zones, avail, rhythm);
   }
   if (Math.abs(fixed - avail) > 0.5) {
     warnings.push(`${cab}: front sizes add up to ${fixed.toFixed(1)}mm but ${avail.toFixed(1)}mm is available; scaled to fit`);

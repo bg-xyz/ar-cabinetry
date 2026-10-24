@@ -18,6 +18,7 @@
 
 import type { CabinetSpec, RunSpec, Style, Zone } from './types.ts';
 import { MAX_CEILING_SCRIBE, MAX_FILLER, SCRIBE } from './install.ts';
+import { GOLDEN_MINOR, PHI, goldenSplit } from './proportion.ts';
 
 const IN = 25.4;
 export const STANDARD_WIDTHS = [24, 30, 36, 42, 48, 54, 60, 66, 72, 84].map((w) => w * IN);
@@ -113,14 +114,15 @@ export function freeSpans(wallLength: number, obstacles: Obstacle[] = [], topHei
 /** Cabinets for a vanity of this width: one sink cabinet, sink + drawer bank, or sink | bank | sink. */
 export function vanityLayout(width: number): { cabinets: CabinetSpec[]; sinkCabinets: string[] } {
   const twoDrawers = [{ type: 'drawer' as const, size: 'fill' as const }, { type: 'drawer' as const, size: 'fill' as const }];
-  const bankDrawers = [{ type: 'drawer' as const, size: 'fill' as const }, { type: 'drawer' as const, size: 'fill' as const }, { type: 'drawer' as const, size: 5 * IN }];
+  const bankDrawers = [...twoDrawers, { type: 'drawer' as const, size: 'fill' as const }];
   const box = (id: string, w: number, zones: CabinetSpec['zones']): CabinetSpec => ({ id, width: w, height: HEIGHT, depth: DEPTH, zones });
   if (width < 42 * IN) return { cabinets: [box('A', width, twoDrawers)], sinkCabinets: ['A'] };
   if (width < DOUBLE_SINK_MIN) {
-    const bank = 18 * IN;
+    const bank = goldenSplit(width)[1]; // sink : bank = the golden section
     return { cabinets: [box('A', width - bank, twoDrawers), box('B', bank, bankDrawers)], sinkCabinets: ['A'] };
   }
-  const bank = width >= 84 * IN ? 24 * IN : width >= 66 * IN ? 18 * IN : 12 * IN;
+  // each sink cabinet is phi times the bank between them
+  const bank = Math.round(width / (1 + 2 * PHI) / (IN / 4)) * (IN / 4);
   const side = (width - bank) / 2;
   return { cabinets: [box('A', side, twoDrawers), box('B', bank, bankDrawers), box('C', side, twoDrawers)], sinkCabinets: ['A', 'C'] };
 }
@@ -212,7 +214,8 @@ const KICK = 4 * IN;
 const CASE_DEPTH = 14 * IN;
 const MAX_TALL = 2400;       // end panels (carcass + kick) come off a 2440mm long sheet, less margins
 const CEILING_GAP = 1.5 * IN; // scribe strip at the ceiling, and room to tip the boxes up
-const BASE_DOORS = 30 * IN;
+// the closed base stops at the golden section of the whole height (about 36" on an 8' wall)
+const baseDoors = (topHeight: number) => Math.min(36 * IN, Math.max(24 * IN, Math.round((topHeight * GOLDEN_MINOR - KICK) / (IN / 4)) * (IN / 4)));
 const MAX_BAY = 36 * IN;
 
 /** Carcass height for this ceiling: as tall as fits, short enough to stand up in the room. */
@@ -250,12 +253,13 @@ export function planBookcase(input: PlanInput): Plan {
   const caseW = Math.floor(width - 2 * T);
   width = caseW + 2 * T;
   const widths = bays(caseW, MAX_BAY);
-  const openH = H - BASE_DOORS;
+  const base = baseDoors(topHeight);
+  const openH = H - base;
   const shelves = Math.max(1, Math.round(openH / (13 * IN)) - 1);
   const cabinets: CabinetSpec[] = widths.map((w, i) => ({
     id: String.fromCharCode(65 + i), width: w, height: H, depth: CASE_DEPTH,
     zones: [
-      { type: 'doors', size: BASE_DOORS, ...(w >= 24 * IN ? { count: 2 } : { count: 1, hinge: i < widths.length / 2 ? 'left' : 'right' }), shelves: 1 } as Zone,
+      { type: 'doors', size: base, ...(w >= 24 * IN ? { count: 2 } : { count: 1, hinge: i < widths.length / 2 ? 'left' : 'right' }), shelves: 1 } as Zone,
       { type: 'open', size: 'fill', shelves },
     ],
   }));
@@ -298,7 +302,7 @@ export function planBookcase(input: PlanInput): Plan {
 
 // ---- console / sideboard and dresser ----------------------------------------------------------
 // Low furniture on legs with a top. Console: bays of doors and drawers, doors at the ends.
-// Dresser: all drawers, a shallow one on top.
+// Dresser: four drawers, graduated golden from the top.
 
 const FURNITURE = {
   console: { name: 'media console', widths: [36, 48, 60, 72, 84], height: 20 * IN, depth: 17 * IN, legs: 6 * IN, bay: 24 * IN },
@@ -307,13 +311,14 @@ const FURNITURE = {
 
 function furnitureBays(project: 'console' | 'dresser', width: number): CabinetSpec[] {
   const f = FURNITURE[project];
-  const n = Math.max(project === 'console' ? 2 : 1, Math.round(width / f.bay));
+  // no drawer front over 40" (runners and fronts sag) and no single door leaf over 24"
+  const n = Math.max(project === 'console' ? 2 : 1, Math.round(width / f.bay), Math.ceil(width / (40 * IN)));
   const w = width / n;
   const drawers = (k: number): Zone[] => Array.from({ length: k }, () => ({ type: 'drawer', size: 'fill' }));
   return Array.from({ length: n }, (_, i): CabinetSpec => {
     let zones: Zone[];
-    if (project === 'dresser') zones = [...drawers(3), { type: 'drawer', size: 5 * IN }];
-    else if (n === 2) zones = i === 0 ? [{ type: 'doors', size: 'fill', count: 1, hinge: 'left', shelves: 1 }] : drawers(3);
+    if (project === 'dresser') zones = drawers(4);
+    else if (n === 2) zones = i === 0 ? [{ type: 'doors', size: 'fill', ...(w >= 24 * IN ? { count: 2 } : { count: 1, hinge: 'left' }), shelves: 1 } as Zone] : drawers(3);
     else zones = i === 0 || i === n - 1
       ? [{ type: 'doors', size: 'fill', count: w >= 24 * IN ? 2 : 1, hinge: i === 0 ? 'left' : 'right', shelves: 1 } as Zone]
       : drawers(3);
@@ -384,7 +389,7 @@ export function planIsland(input: PlanInput): Plan {
   const caseW = width - 2 * T;
   const n = Math.max(2, Math.round(caseW / (30 * IN)));
   const w = caseW / n;
-  const drawers: Zone[] = [{ type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }, { type: 'drawer', size: 6 * IN }];
+  const drawers: Zone[] = [{ type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }];
   const cabinets: CabinetSpec[] = Array.from({ length: n }, (_, i) => ({
     id: String.fromCharCode(65 + i), width: w, height: 30.5 * IN, depth: 24 * IN,
     zones: i % 2 === 0 ? drawers : [{ type: 'doors', size: 'fill', ...(w >= 24 * IN ? { count: 2 } : { count: 1, hinge: i < n / 2 ? 'left' : 'right' }), shelves: 1 } as Zone],
