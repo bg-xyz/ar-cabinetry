@@ -18,6 +18,7 @@ import { designRun } from './run.ts';
 import { model3d } from './model3d.ts';
 import { plan } from './planner.ts';
 import { understand } from './intent.ts';
+import { tuneRanges, tuneSpec } from './tune.ts';
 import { critique, proportionNote, RULES } from './critic.ts';
 import { cutSheets } from './sheets.ts';
 import type { Sheet } from './nest.ts';
@@ -73,13 +74,23 @@ export const Plywise = {
   // "a floating walnut double vanity" -> the build, size, style and finishes it asks for (src/intent.ts)
   understand: (text: string) => guard(() => understand(text)),
   plan: (json: string) => guard(() => {
-    const p = plan(JSON.parse(json) as PlanInput);
+    const input = JSON.parse(json) as PlanInput;
+    const p = plan(input);
+    let tuneNotes: string[] = [];
+    // the settings panel: exact height, depth, sections, fronts, drawers (src/tune.ts)
+    if (input.tune && Object.values(input.tune).some((v) => v !== undefined && v !== null)) {
+      const t = tuneSpec(p.spec, p.project, input.tune, cat);
+      p.spec = t.spec;
+      tuneNotes = t.notes;
+    }
     const m = model(p.spec);
+    const d = designRun(p.spec, cat);
     const s = sheetNote(p.spec, m.sheetArea);
     const priceNote = `About ${dollars(m.cost.materials + m.cost.hardware)} in plywood and hardware (${dollars(m.cost.materials)} + ${dollars(m.cost.hardware)}); the shop's cutting and finishing are extra.`;
     return {
       plan: { project: p.project, x0: p.x0, width: p.width, sinks: p.sinks, span: p.span, spans: p.spans, widthOptions: p.widthOptions,
         standoff: p.standoff, faceWall: p.faceWall ?? false,
+        tune: tuneRanges(p.spec, p.project, d), tuneNotes,
         notes: [p.notes[0], priceNote, m.proportion.note, ...p.notes.slice(1), s.note], name: p.spec.name, proportion: m.proportion.note,
         // the design itself, for share links (plywise.xyz/d/#...): numbers to 0.1mm keeps links short
         specJSON: JSON.stringify(p.spec, (_k, v) => (typeof v === 'number' ? Math.round(v * 10) / 10 : v)), grainMatch: p.spec.style?.grainMatch ?? 'across', sheets: s.sheets, sheetsUnmatched: s.sheetsUnmatched },

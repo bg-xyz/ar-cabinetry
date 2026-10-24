@@ -20,6 +20,7 @@
 //     bookcase drops its end panel there: the filler takes its place); a bookcase gets a scribe strip
 //     up to the ceiling when the gap above is 8" or less
 
+import type { Tune } from './tune.ts';
 import type { CabinetSpec, RunSpec, Style, Zone } from './types.ts';
 import { MAX_CEILING_SCRIBE, MAX_FILLER, SCRIBE } from './install.ts';
 import { GOLDEN_MINOR, PHI, goldenSplit, graduate } from './proportion.ts';
@@ -53,6 +54,7 @@ export interface PlanInput {
   sinkAt?: number;          // centre of the existing sink, if the scan found one
   width?: number;           // force a width instead of the best fit
   sinks?: 1 | 2;            // vanities: asked for one or two sinks (default: two from 60" up)
+  tune?: Tune;              // the settings panel (src/tune.ts): applied after planning, where the catalog is
   style?: Partial<Style> & { preset?: string };
   mounting?: RunSpec['mounting'];
 }

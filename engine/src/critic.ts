@@ -61,7 +61,9 @@ export function critique(d: Design): Finding[] {
     for (let i = 1; i < tops.length; i++) {
       if (covered(tops[i - 1], tops[i])) continue;
       const gap = tops[i] - tops[i - 1];
-      if (gap < 7 * IN || gap > 16 * IN) out.push({ rule: 'shelves', cabinet: c.id, message: `${c.id}: open shelves ${inch(gap)} apart (7"-16" reads as shelving)` });
+      // one open bay with no shelves in it (a media cubby, a record shelf) can run to 19"
+      const max = tops.length === 2 ? 19 * IN : 16 * IN;
+      if (gap < 7 * IN || gap > max) out.push({ rule: 'shelves', cabinet: c.id, message: `${c.id}: open shelves ${inch(gap)} apart (7"-16" reads as shelving)` });
     }
   }
 
