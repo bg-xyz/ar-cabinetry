@@ -333,3 +333,37 @@ extension UIColor {
         self.init(red: CGFloat((v >> 16) & 0xff) / 255, green: CGFloat((v >> 8) & 0xff) / 255, blue: CGFloat(v & 0xff) / 255, alpha: 1)
     }
 }
+
+extension CabinetBuilder {
+    /// Opens or closes whatever was touched: a drawer slides out (front, box and pull together), a door
+    /// swings on its hinges. `body` is the build's body entity (the root's first child). Returns false
+    /// when the touch wasn't on a front.
+    @discardableResult
+    static func toggleFront(_ hit: Entity, design: Design, body: Entity, opened: inout Set<String>) -> Bool {
+        var e: Entity? = hit
+        var part: Design.Part?
+        while let cur = e, part == nil {   // the hit may be a pull riding on the front
+            part = design.parts.first { $0.id == cur.name && ($0.role == "drawerFront" || $0.role == "door") }
+            e = cur.parent
+        }
+        guard let part else { return false }
+        let opening = !opened.contains(part.id)
+        if opening { opened.insert(part.id) } else { opened.remove(part.id) }
+        if part.role == "drawerFront" {
+            // "A-drawer-2-front" -> every part of drawer 2 in cabinet A moves together
+            let prefix = String(part.id.dropLast("front".count))
+            for child in body.children where child.name.hasPrefix(prefix) {
+                child.move(to: Transform(translation: SIMD3<Float>(0, 0, opening ? 0.32 : 0)), relativeTo: body, duration: 0.45, timingFunction: .easeInOut)
+            }
+        } else if let door = body.findEntity(named: part.id) {
+            let left = part.name.contains("left")
+            let px = Float((left ? part.box.min[0] : part.box.min[0] + part.box.size[0]) / 1000), pz = Float(part.box.min[2] / 1000)
+            let angle: Float = opening ? (left ? -1 : 1) * .pi * 0.55 : 0
+            var pivot = matrix_identity_float4x4
+            pivot.columns.3 = SIMD4(px, 0, pz, 1)
+            let m = pivot * simd_float4x4(simd_quatf(angle: angle, axis: SIMD3(0, 1, 0))) * pivot.inverse
+            door.move(to: Transform(matrix: m), relativeTo: body, duration: 0.5, timingFunction: .easeInOut)
+        }
+        return true
+    }
+}

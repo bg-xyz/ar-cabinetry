@@ -207,3 +207,31 @@ Site https://plywise.xyz redeployed with the new design (verified live).
 - **Mid-century legs** (Blake): `catalog/legs.json`, default `taper`: solid wood matching the cabinet, 44 to 24mm, 8 degree splay on angled plates, 28mm brass ferrule; `taper-straight` and `peg-black` remain. Drawn as true tapered, splayed legs with grain along the leg (preview + AR).
 - **2K textures** for the app (`textures/*/2k/`, colour matched to the approved 1K look); the web previews keep 1K.
 - **Names** (Leah: nothing that leans on other brands): styles are now **Slab / Frame / Shadow / Flush**; tagline **"Built for your walls."** ("Make room." retired: "Make Room for Life" is registered for closet furniture, "Make Room for Living" for furniture retail; IKEA ran "Make Room for Your Life"). "Plywise" itself: no conflicting company or mark found (closest: PLYWORX, tool racks). Brand and designer names removed from DESIGN.md; prompts rule in marketing/PROMPTS.md. Before launch: a proper USPTO search, then consider filing Plywise.
+
+---
+
+## 2026-10-24 early: Blake + Leah's next notes
+
+**They said:** the app test went great; add kitchen islands; ask whether detected built-ins are being replaced;
+let people take the raw model image to their own image AI (keep AI out of the app and site); a see-through home
+screen for a native AR feel; support Vision Pro now (Blake has one to test); finger-roll sliders on app and site.
+
+**Done:**
+- Builds 13/14 compiled: banding + sheet grain + legs; tap-to-open drawers/doors (haptics), captioned share photo,
+  price line ("About $1,550 in plywood and hardware").
+- Build 15: finger-roll sliders (`RollPicker` in `Sources/Shared/UI.swift`: snapping carousel, centre = pick,
+  selection haptic, commits when it settles) for the build picker and every option (one tab row + one slider);
+  glass home/scan panels; Keep / Replace for existing cabinets the scan finds on the wall; "Make it a photo" (raw
+  AR frame + a prompt describing the piece exactly, copied to the clipboard and shared); kitchen island listed
+  as coming soon.
+- Site: hero is now the slow-motion film (poster = the lifestyle still); banded photography; demo picker is a
+  scroll-snap card slider; the 3D viewer has "Make it a photo" (clean PNG render + prompt).
+- **Vision Pro**: sources split into `Sources/Shared` (engine bridge, models, builder, UI, options),
+  `Sources/iOS`, `Sources/Vision`; new XcodeGen target `PlywiseVision` (visionOS 2, same bundle id). Glass main
+  window with sliders and the plan; a volumetric window with the piece at true scale (or fitted), a floating
+  catalogue plate, pinch to open drawers and doors; an immersive space with ARKit wall detection (faint brass
+  panels on each wall; pinch one, it's planned for that wall's width and height and stands on the floor), plate
+  floating above. CI compile-checks it (non-blocking); visionOS TestFlight needs the platform added in App Store
+  Connect first.
+- `GROWTH.md`: the virality and ease-of-use plan (next: website AR Quick Look, share links, assembly film,
+  no-LiDAR mode, saved designs, get-it-made, kitchen islands, closets).

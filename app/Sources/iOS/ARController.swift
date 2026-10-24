@@ -14,37 +14,11 @@ import UIKit
 final class ARController: ObservableObject {
     enum Phase { case start, scanning, processing, pickWall, placed, unsupported }
 
-    /// What you can build. The planner knows the rules for each; the rest are on the way.
-    struct Project: Identifiable {
-        let id: String
-        let name: String
-        let noun: String
-        let room: String
-        let icon: String
-        let ready: Bool
-    }
-    static let projects: [Project] = [
-        .init(id: "vanity", name: "Bathroom vanity", noun: "vanity", room: "Bathroom", icon: "drop.fill", ready: true),
-        .init(id: "bookcase", name: "Built-in bookcase", noun: "bookcase", room: "Living room, office", icon: "books.vertical.fill", ready: true),
-        .init(id: "console", name: "Media console", noun: "console", room: "Living room", icon: "tv.fill", ready: true),
-        .init(id: "dresser", name: "Dresser", noun: "dresser", room: "Bedroom", icon: "cabinet.fill", ready: true),
-        .init(id: "closet", name: "Closet system", noun: "closet", room: "Bedroom", icon: "hanger", ready: false),
-        .init(id: "kitchen", name: "Kitchen", noun: "kitchen", room: "Kitchen", icon: "refrigerator.fill", ready: false),
-        .init(id: "island", name: "Kitchen island", noun: "island", room: "Kitchen", icon: "square.split.bottomrightquarter.fill", ready: false),
-    ]
-
-    /// Grain matching: fronts cut in sequence from one panel so the veneer flows across the face.
-    static let grains: [(name: String, id: String, hint: String)] = [
-        ("Across", "across", "Grain flows sideways across every front"),
-        ("Waterfall", "waterfall", "Vertical grain flowing down each stack"),
-        ("Off", "off", "Best yield, no matching"),
-    ]
-
-    /// The four presets (DESIGN.md: plain descriptive names), with what each one is.
-    static let styles: [(name: String, preset: String, hint: String)] = [
-        ("Slab", "classic-euro", "Full-overlay slab fronts"), ("Frame", "ply-inset", "The plywood box frames each front"),
-        ("Shadow", "recessed-inset", "Fronts set back, a shadow line"), ("Flush", "milan-flush", "Flush ends, push to open"),
-    ]
+    // what you can build, the styles and the grain choices are shared with Vision Pro (Shared/Options.swift)
+    typealias Project = Builds.Kind
+    static let projects = Builds.projects
+    static let grains = Builds.grains
+    static let styles = Builds.styles
 
     @Published var phase: Phase = .start
     @Published var status = ""
@@ -267,32 +241,8 @@ final class ARController: ObservableObject {
 
     /// Tap a drawer front to slide the drawer out (box and all), tap a door to swing it on its hinges.
     private func toggleFront(_ hit: Entity) {
-        guard let design else { return }
-        var e: Entity? = hit
-        var part: Design.Part?
-        while let cur = e, part == nil {   // the hit may be a pull riding on the front
-            part = design.parts.first { $0.id == cur.name }
-            e = cur.parent
-        }
-        guard let part, let body = cabinet?.children.first else { return }
-        let opening = !opened.contains(part.id)
-        if opening { opened.insert(part.id) } else { opened.remove(part.id) }
-        tick.impactOccurred()
-        if part.role == "drawerFront" {
-            // "A-drawer-2-front" -> every part of drawer 2 in cabinet A moves together
-            let prefix = String(part.id.dropLast("front".count))
-            for child in body.children where child.name.hasPrefix(prefix) {
-                child.move(to: Transform(translation: SIMD3<Float>(0, 0, opening ? 0.32 : 0)), relativeTo: body, duration: 0.45, timingFunction: .easeInOut)
-            }
-        } else if part.role == "door", let door = body.findEntity(named: part.id) {
-            let left = part.name.contains("left")
-            let px = Float((left ? part.box.min[0] : part.box.min[0] + part.box.size[0]) / 1000), pz = Float(part.box.min[2] / 1000)
-            let angle: Float = opening ? (left ? -1 : 1) * .pi * 0.55 : 0
-            var pivot = matrix_identity_float4x4
-            pivot.columns.3 = SIMD4(px, 0, pz, 1)
-            let m = pivot * simd_float4x4(simd_quatf(angle: angle, axis: SIMD3(0, 1, 0))) * pivot.inverse
-            door.move(to: Transform(matrix: m), relativeTo: body, duration: 0.5, timingFunction: .easeInOut)
-        }
+        guard let design, let body = cabinet?.children.first else { return }
+        if CabinetBuilder.toggleFront(hit, design: design, body: body, opened: &opened) { tick.impactOccurred() }
     }
 
     // MARK: share
