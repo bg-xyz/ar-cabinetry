@@ -34,3 +34,8 @@ the image viewer's "Create Video"; uploading straight into the video composer's 
 Prompt: "Real 35mm film footage, slow motion. Locked-off camera on a tripod ... the walnut dresser ... stay perfectly
 still and sharp ... no cuts, no text." Made loopable with ffmpeg (last 0.8s dissolves into the first): `site/img/film-dresser.mp4`
 (5.25s, ~1 MB). Video allowance after: 11 left this month.
+
+Round 3: `gen/island-a.png`, `-b` from `ref/island-oak.png` (84" white oak island): "Architectural interior photograph
+... Use the kitchen island from the reference image exactly as designed ... Its top is a thin honed travertine slab ...
+calm, sunlit 2026 kitchen in a restored 1960s house ... two pale ceramic pendant lamps ... No text, no logos, no people."
+Pick: `site/img/photo-island.jpg`. Image allowance after: about 79 left this month.
