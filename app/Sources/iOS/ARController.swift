@@ -177,6 +177,7 @@ final class ARController: ObservableObject {
         let config = ARWorldTrackingConfiguration()
         config.environmentTexturing = .automatic
         if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) { config.sceneReconstruction = .mesh }
+        config.planeDetection = [.horizontal, .vertical]   // so quick place still finds the floor after a scan
         arView.session.run(config)
         arView.environment.sceneUnderstanding.options.insert(.occlusion)
         showWalls()

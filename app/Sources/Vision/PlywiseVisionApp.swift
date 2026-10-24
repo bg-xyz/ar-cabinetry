@@ -204,6 +204,7 @@ struct PieceVolume: View {
             if let plate = attachments.entity(for: "plate") {
                 plate.name = "plate"
                 content.add(plate)
+                built.plate = plate
             }
             rebuild(plate: attachments.entity(for: "plate"))
         } update: { _, attachments in
@@ -216,7 +217,10 @@ struct PieceVolume: View {
             guard let design = model.design, let body = stage.children.first?.children.first?.children.first else { return }
             CabinetBuilder.toggleFront(value.entity, design: design, body: body, opened: &opened)
         })
-        .onChange(of: model.version) { _, _ in opened = [] }   // a fresh build starts closed
+        .onChange(of: model.version) { _, _ in   // a fresh build starts closed
+            opened = []
+            rebuild(plate: built.plate)
+        }
         .onChange(of: model.assembleToken) { _, _ in
             opened = []
             built.version = -1
@@ -247,6 +251,7 @@ struct PieceVolume: View {
 /// Which design version the volume was built for (so updates rebuild only when something changed).
 final class Built {
     var version = -1
+    var plate: Entity?
 }
 
 // MARK: - the room
