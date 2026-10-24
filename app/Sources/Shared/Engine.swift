@@ -34,6 +34,8 @@ struct PlanResult: Decodable {
     let sheets: Double           // plywood, in 4x8 sheet equivalents
     let sheetsUnmatched: Double  // the same design with grain matching off
     let specJSON: String?        // the design (RunSpec JSON), for share links
+    let standoff: Double?        // islands: their fronts face the wall this far (mm) from it
+    let faceWall: Bool?
 
     /// plywise.xyz/d/#<base64url design>: opens this design in any browser (3D, finishes, AR Quick Look).
     func shareLink(fronts: String?, cabinet: String?, top: String?) -> URL? {

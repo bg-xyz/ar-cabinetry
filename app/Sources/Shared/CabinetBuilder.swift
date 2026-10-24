@@ -335,6 +335,24 @@ extension UIColor {
 }
 
 extension CabinetBuilder {
+    /// Where the piece goes against a wall frame (x along the wall, z into the room, both unit, metres):
+    /// against the wall at `left` along it, or, for an island, turned round to face the wall from
+    /// `standoff` out. Returns the root's world matrix with its origin on the floor.
+    static func placement(design: Design, plan: PlanResult, wallX x: SIMD3<Float>, wallZ z: SIMD3<Float>,
+                          leftEnd: SIMD3<Float>, out: Float) -> simd_float4x4 {
+        let left = Float(plan.x0 / 1000)
+        if plan.faceWall == true, let standoff = plan.standoff {
+            let fronts = design.parts.filter { $0.role == "door" || $0.role == "drawerFront" }
+            let frontZ = Float((fronts.map { $0.box.min[2] + $0.box.size[2] }.max() ?? design.overall.depth) / 1000)
+            let panels = design.parts.filter { $0.role == "endPanel" && $0.id.hasPrefix("end-panel") }.count
+            let caseW = Float(design.overall.width / 1000) - Float(panels) * 0.018
+            let origin = leftEnd + x * (left + caseW) + z * (Float(standoff / 1000) + frontZ + out)
+            return simd_float4x4(SIMD4(-x, 0), SIMD4(0, 1, 0, 0), SIMD4(-z, 0), SIMD4(origin, 1))
+        }
+        let origin = leftEnd + x * left + z * out
+        return simd_float4x4(SIMD4(x, 0), SIMD4(0, 1, 0, 0), SIMD4(z, 0), SIMD4(origin, 1))
+    }
+
     /// Opens or closes whatever was touched: a drawer slides out (front, box and pull together), a door
     /// swings on its hinges. `body` is the build's body entity (the root's first child). Returns false
     /// when the touch wasn't on a front.

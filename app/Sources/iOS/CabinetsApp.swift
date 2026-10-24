@@ -118,6 +118,7 @@ struct ContentView: View {
         switch ar.project {
         case "vanity": around = "around doors and the toilet, centred on your old sink"
         case "bookcase": around = "wall to wall and up to the ceiling, around doors and windows"
+        case "island": return "Tap the wall your counters are on. The island stands 42\" in front of them, facing them, with room to walk round each end."
         default: around = "around doors, and under windows when the sill is high enough"
         }
         return "Tap the wall where the \(ar.current.noun) goes. Plywise sizes it to the clear space, \(around)."

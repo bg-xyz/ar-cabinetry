@@ -18,7 +18,7 @@ enum Builds {
         .init(id: "dresser", name: "Dresser", noun: "dresser", room: "Bedroom", icon: "cabinet.fill", ready: true),
         .init(id: "closet", name: "Closet system", noun: "closet", room: "Bedroom", icon: "hanger", ready: false),
         .init(id: "kitchen", name: "Kitchen", noun: "kitchen", room: "Kitchen", icon: "refrigerator.fill", ready: false),
-        .init(id: "island", name: "Kitchen island", noun: "island", room: "Kitchen", icon: "square.split.bottomrightquarter.fill", ready: false),
+        .init(id: "island", name: "Kitchen island", noun: "island", room: "Kitchen", icon: "square.split.bottomrightquarter.fill", ready: true),
     ]
 
     /// Grain matching: fronts cut in sequence from one panel so the veneer flows across the face.

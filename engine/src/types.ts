@@ -243,8 +243,9 @@ export interface RunSpec {
   kickHeight?: number;    // toe-kick: plinth height (default 100mm / 4")
   kickSetback?: number;   // toe-kick: recess behind the fronts (default 75mm / 3")
   endPanels?: 'none' | 'both' | 'left' | 'right'; // flush-face applied end panels
+  finishedBack?: boolean; // islands: an applied panel across the back, so the seating side is furniture too
   cabinets: CabinetSpec[];
-  top?: { material: string; overhangSides: number; overhangFront: number };
+  top?: { material: string; overhangSides: number; overhangFront: number; overhangBack?: number }; // overhangBack: island seating
   sinks?: SinkSpec[];
   plumbing?: { width: number; bottom: number; top: number }; // back cutout, heights above floor
 }

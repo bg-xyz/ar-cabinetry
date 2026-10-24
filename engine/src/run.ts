@@ -138,12 +138,22 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
   if (panelR) parts.push(endPanel('R', totalW));
   if (panelL || panelR) hardware.push({ item: 'Screws, end panel to cabinet side (from inside, 1-1/4")', qty: 6 * (Number(panelL) + Number(panelR)) });
 
+  // islands: a finished panel across the back (and the end panels' back edges), down to the floor
+  const backT = spec.finishedBack ? epT : 0;
+  if (spec.finishedBack) {
+    const x0 = panelL ? -epT : 0, x1 = totalW + (panelR ? epT : 0);
+    parts.push({ id: 'back-panel', name: 'Finished back panel', cabinet: 'run', role: 'endPanel', material: style.carcass,
+      box: { min: [x0, epY0, -backT], size: [x1 - x0, H - epY0, backT] }, faceA: '-z', grain: 0, exposed: true, ops: [] });
+    hardware.push({ item: 'Screws, back panel to cabinet backs (from inside, 1-1/4")', qty: 4 * spec.cabinets.length });
+  }
+
   if (spec.top) {
     const oh = spec.top.overhangSides;
     const left = -oh - (panelL ? epT : 0), right = totalW + oh + (panelR ? epT : 0);
+    const back = -backT - (spec.top.overhangBack ?? 0);
     parts.push({
       id: 'top', name: 'Countertop', cabinet: 'run', role: 'top', material: spec.top.material,
-      box: { min: [left, H, 0], size: [right - left, topT, topFrontZ] },
+      box: { min: [left, H, back], size: [right - left, topT, topFrontZ - back] },
       faceA: '+y', grain: 0, exposed: true, ops: topOps,
     });
   }
@@ -164,7 +174,7 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
 
   return {
     spec, style, parts, hardware: mergeHardware(hardware), fixtures, warnings,
-    overall: { width: totalW + (panelL ? epT : 0) + (panelR ? epT : 0), height: H + topT, depth: topFrontZ, elevation: elev },
+    overall: { width: totalW + (panelL ? epT : 0) + (panelR ? epT : 0), height: H + topT, depth: topFrontZ + backT + (spec.top?.overhangBack ?? 0), elevation: elev },
   };
 }
 

@@ -449,10 +449,9 @@ final class ARController: ObservableObject {
     }
 
     private func position() {
-        guard let cabinet, let f = frame, let plan else { return }
-        let left = Float(plan.x0 / 1000) - f.length / 2 + along
-        let origin = SIMD3<Float>(f.c.x, f.floorY, f.c.z) + f.x * left + f.z * out
-        cabinet.transform = Transform(matrix: simd_float4x4(SIMD4(f.x, 0), SIMD4(0, 1, 0, 0), SIMD4(f.z, 0), SIMD4(origin, 1)))
+        guard let cabinet, let f = frame, let plan, let design else { return }
+        let leftEnd = SIMD3<Float>(f.c.x, f.floorY, f.c.z) + f.x * (along - f.length / 2)
+        cabinet.transform = Transform(matrix: CabinetBuilder.placement(design: design, plan: plan, wallX: f.x, wallZ: f.z, leftEnd: leftEnd, out: out))
     }
 
     /// Slide along the wall (right +) or away from it, in inches.

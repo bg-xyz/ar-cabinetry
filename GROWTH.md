@@ -42,8 +42,10 @@ designs real (buildable, priced), which is what turns "cool AR toy" into "I'm ac
 8. **Before / after slider** for shared photos (the empty wall, then the piece).
 9. **Light matching**: use ARKit's light estimate for the cabinet's lighting, so it sits in the room at night too.
 10. **Sound**: a soft wood "thock" when a drawer closes, a quiet click on placement. Off by default in public.
-11. **Kitchen islands** (Blake): freestanding runs on a toe-kick, finished on all four sides, a seating overhang on one
-    side, end panels both ends. The planner places it from the kitchen's clear floor, not a wall. Then full kitchens.
+11. ~~Kitchen islands~~ **Done (2026-10-24):** `plan({ project: 'island' })`: 48-90" (the plywood top comes off one
+    8' sheet; longer means a stone top), drawer banks and door bays toward the counters, end panels, a finished back
+    panel, toe kick, 12" seating overhang; stands 42" in front of 25" counters facing them, 36" to walk round each
+    end. In the app (iPhone + Vision Pro) and on the site. Next: full kitchens.
 12. **Closets**: hanging sections (rod + top shelf), drawer towers, shoe shelves, 24" deep.
 
 ## Vision Pro, next

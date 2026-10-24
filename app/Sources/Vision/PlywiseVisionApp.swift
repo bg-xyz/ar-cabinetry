@@ -388,9 +388,9 @@ struct RoomSpace: View {
             status = model.error ?? "That wall is too short for this piece."
             return
         }
-        let left = Float(plan.x0 / 1000) - wall.width / 2
-        let origin = SIMD3<Float>(wall.center.x, 0, wall.center.z) + wall.x * left   // the floor is y = 0 in the room
-        piece.transform = Transform(matrix: simd_float4x4(SIMD4(wall.x, 0), SIMD4(0, 1, 0, 0), SIMD4(wall.z, 0), SIMD4(origin, 1)))
+        guard let design = model.design else { return }
+        let leftEnd = SIMD3<Float>(wall.center.x, 0, wall.center.z) - wall.x * (wall.width / 2)   // the floor is y = 0 in the room
+        piece.transform = Transform(matrix: CabinetBuilder.placement(design: design, plan: plan, wallX: wall.x, wallZ: wall.z, leftEnd: leftEnd, out: 0))
         world.addChild(piece)
         status = "\(plan.name.capitalizingFirst). Pinch a drawer or door to open it."
     }

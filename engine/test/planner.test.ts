@@ -123,3 +123,26 @@ for (const project of projects) for (const wall of [40, 52, 66, 80, 100, 150]) f
     assert.deepEqual(collisions(d), []);
   });
 }
+
+test('a kitchen island: finished all round, seating overhang, faces the counters', () => {
+  const p = plan({ project: 'island', wallLength: 180 * IN });
+  assert.equal(Math.round(p.width / IN), 90);
+  assert.equal(p.faceWall, true);
+  assert.ok(p.standoff && Math.abs(p.standoff - 67 * IN) < 1);
+  const d = designRun(p.spec, cat);
+  const top = d.parts.find((x) => x.role === 'top')!;
+  assert.ok(top.box.min[2] <= -(12 * IN), 'top overhangs the back for seats');
+  assert.ok(d.parts.some((x) => x.id === 'back-panel' && x.band));
+  assert.throws(() => plan({ project: 'island', wallLength: 100 * IN }), /room to walk round/);
+});
+
+for (const wall of [120, 132, 150, 180, 240]) {
+  test(`island on a ${wall}" kitchen wall: valid job, clean joinery`, () => {
+    const p = plan({ project: 'island', wallLength: wall * IN });
+    const d = designRun(p.spec, cat);
+    assert.ok(!d.warnings.length, d.warnings.join(' | '));
+    assert.ok(Math.abs(d.overall.width - p.width) < 0.5);
+    buildJob(d, cat, { units: 'in', toolDia: 6.35 });
+    assert.deepEqual(collisions(d), []);
+  });
+}

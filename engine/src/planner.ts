@@ -24,8 +24,8 @@ const EDGE = 0.5 * IN;
 const HEIGHT = 20 * IN, DEPTH = 20 * IN;
 const T = 18; // carcass board (bb18): end panels add this each side
 
-export type Project = 'vanity' | 'bookcase' | 'console' | 'dresser';
-export const PROJECTS: Project[] = ['vanity', 'bookcase', 'console', 'dresser'];
+export type Project = 'vanity' | 'bookcase' | 'console' | 'dresser' | 'island';
+export const PROJECTS: Project[] = ['vanity', 'bookcase', 'console', 'dresser', 'island'];
 
 export type ObstacleKind = 'door' | 'opening' | 'window' | 'toilet' | 'tub' | 'sink' | 'storage' | 'other';
 export interface Obstacle {
@@ -56,6 +56,9 @@ export interface Plan {
   spans: [number, number][];
   widthOptions: number[];   // other widths that fit here (the app's Width menu)
   notes: string[];
+  // islands stand out in the room: their fronts face the wall (the counters) this far from it
+  standoff?: number;
+  faceWall?: boolean;
 }
 
 const inches = (mm: number) => `${Math.round(mm / IN)}"`;
@@ -101,7 +104,8 @@ export function vanityLayout(width: number): { cabinets: CabinetSpec[]; sinkCabi
 export function plan(input: PlanInput): Plan {
   const project = input.project ?? 'vanity';
   if (!PROJECTS.includes(project)) throw new Error(`Unknown project "${project}". Known: ${PROJECTS.join(', ')}`);
-  return project === 'vanity' ? planVanity(input) : project === 'bookcase' ? planBookcase(input) : planFurniture(input, project);
+  return project === 'vanity' ? planVanity(input) : project === 'bookcase' ? planBookcase(input)
+    : project === 'island' ? planIsland(input) : planFurniture(input, project);
 }
 
 function noRoom(spans: [number, number][], what: string, need: number): never {
@@ -302,4 +306,52 @@ export function planFurniture(input: PlanInput, project: 'console' | 'dresser'):
     top: { material: 'bb18', overhangSides: 0, overhangFront: 0 },
   };
   return { project, spec, x0, width, sinks: 0, span, spans, widthOptions, notes };
+}
+
+// ---- kitchen island ------------------------------------------------------------------------------
+// Tap the wall your counters are on. The island stands 42" in front of 25" counters (the usual aisle),
+// its drawers and doors facing them, finished all round: end panels, a finished back, a toe kick, and a
+// 12" seating overhang on the room side. Sized to the clear wall less 36" to walk round each end.
+
+const ISLAND_WIDTHS = [48, 60, 72, 84, 90].map((w) => w * IN); // the plywood top comes off an 8' sheet
+const COUNTER_DEPTH = 25 * IN, AISLE = 42 * IN, WALK_ROUND = 36 * IN, SEAT = 24 * IN, SEAT_OVERHANG = 12 * IN;
+
+export function planIsland(input: PlanInput): Plan {
+  const spans = freeSpans(input.wallLength, input.obstacles, 0, false);
+  const span = spans.length ? widest(spans) : [0, input.wallLength] as [number, number];
+  const avail = span[1] - span[0] - 2 * WALK_ROUND;
+  const widthOptions = ISLAND_WIDTHS.filter((w) => w <= avail + 0.01);
+  if (!widthOptions.length) throw new Error(`An island needs about ${inches(ISLAND_WIDTHS[0] + 2 * WALK_ROUND)} of kitchen along this wall (${inches(ISLAND_WIDTHS[0])} plus room to walk round it); this one has ${inches(span[1] - span[0])}.`);
+  const notes: string[] = [];
+  let width = widthOptions[widthOptions.length - 1];
+  if (input.width) {
+    width = Math.min(input.width, avail);
+    if (input.width > avail + 0.01) notes.push(`${inches(input.width)} leaves no room to walk round it; using ${inches(width)}.`);
+  }
+  const caseW = width - 2 * T;
+  const n = Math.max(2, Math.round(caseW / (30 * IN)));
+  const w = caseW / n;
+  const drawers: Zone[] = [{ type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }, { type: 'drawer', size: 6 * IN }];
+  const cabinets: CabinetSpec[] = Array.from({ length: n }, (_, i) => ({
+    id: String.fromCharCode(65 + i), width: w, height: 30.5 * IN, depth: 24 * IN,
+    zones: i % 2 === 0 ? drawers : [{ type: 'doors', size: 'fill', ...(w >= 24 * IN ? { count: 2 } : { count: 1, hinge: i < n / 2 ? 'left' : 'right' }), shelves: 1 } as Zone],
+  }));
+  const seats = Math.floor(width / SEAT);
+  notes.unshift(`A ${inches(width)} island: drawers and doors toward your counters, seats for ${seats} on the other side (12" overhang).`);
+  notes.push(`Stands ${inches(AISLE)} in front of ${inches(COUNTER_DEPTH)} counters, with ${inches(WALK_ROUND)} to walk round each end.`);
+  notes.push('Finished all round: end panels, a finished back and a toe kick. The plywood top can be a template for stone.');
+  const spec: RunSpec = {
+    name: `${Math.round(width / IN)}" kitchen island`,
+    units: 'mm',
+    style: { preset: 'classic-euro', grainMatch: 'across', ...input.style },
+    mounting: 'toe-kick',
+    elevation: 0,
+    kickHeight: KICK,
+    endPanels: 'both',
+    finishedBack: true,
+    cabinets,
+    top: { material: 'bb18', overhangSides: 0, overhangFront: 0.5 * IN, overhangBack: SEAT_OVERHANG },
+  };
+  const x0 = span[0] + (span[1] - span[0] - width) / 2 + T;
+  return { project: 'island', spec, x0, width, sinks: 0, span, spans, widthOptions, notes, standoff: COUNTER_DEPTH + AISLE, faceWall: true };
 }

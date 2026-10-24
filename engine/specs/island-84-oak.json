@@ -1,0 +1,78 @@
+{
+  "name": "84\" kitchen island, white oak",
+  "units": "mm",
+  "style": {
+    "preset": "classic-euro",
+    "grainMatch": "across",
+    "frontFinish": "white-oak",
+    "carcassFinish": "white-oak",
+    "topFinish": "white-oak"
+  },
+  "mounting": "toe-kick",
+  "elevation": 0,
+  "kickHeight": 101.6,
+  "endPanels": "both",
+  "finishedBack": true,
+  "cabinets": [
+    {
+      "id": "A",
+      "width": 699.2,
+      "height": 774.7,
+      "depth": 609.6,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": 152.4
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "width": 699.2,
+      "height": 774.7,
+      "depth": 609.6,
+      "zones": [
+        {
+          "type": "doors",
+          "size": "fill",
+          "count": 2,
+          "shelves": 1
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "width": 699.2,
+      "height": 774.7,
+      "depth": 609.6,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": 152.4
+        }
+      ]
+    }
+  ],
+  "top": {
+    "material": "bb18",
+    "overhangSides": 0,
+    "overhangFront": 12.7,
+    "overhangBack": 304.8
+  }
+}
