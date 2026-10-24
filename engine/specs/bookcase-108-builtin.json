@@ -1,0 +1,72 @@
+{
+  "name": "108\" built-in bookcase, white oak",
+  "units": "mm",
+  "style": {
+    "preset": "classic-euro",
+    "frontFinish": "white-oak",
+    "carcassFinish": "white-oak"
+  },
+  "mounting": "toe-kick",
+  "elevation": 0,
+  "kickHeight": 101.6,
+  "endPanels": "both",
+  "cabinets": [
+    {
+      "id": "A",
+      "width": 910.6666666666666,
+      "height": 2298,
+      "depth": 355.59999999999997,
+      "zones": [
+        {
+          "type": "doors",
+          "size": 762,
+          "count": 2,
+          "shelves": 1
+        },
+        {
+          "type": "open",
+          "size": "fill",
+          "shelves": 4
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "width": 910.6666666666666,
+      "height": 2298,
+      "depth": 355.59999999999997,
+      "zones": [
+        {
+          "type": "doors",
+          "size": 762,
+          "count": 2,
+          "shelves": 1
+        },
+        {
+          "type": "open",
+          "size": "fill",
+          "shelves": 4
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "width": 910.6666666666666,
+      "height": 2298,
+      "depth": 355.59999999999997,
+      "zones": [
+        {
+          "type": "doors",
+          "size": 762,
+          "count": 2,
+          "shelves": 1
+        },
+        {
+          "type": "open",
+          "size": "fill",
+          "shelves": 4
+        }
+      ]
+    }
+  ]
+}

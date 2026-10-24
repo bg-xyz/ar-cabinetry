@@ -171,7 +171,7 @@ const isFront = (r) => r === 'door' || r === 'drawerFront';
 function finishOf(p) {
   if (isFront(p.role) || p.role === 'endPanel') return choice.fronts;
   if (p.role === 'top') return choice.top;
-  if (p.role.startsWith('drawer') || p.role === 'back') return 'birch';
+  if (p.role.startsWith('drawer') || (p.role === 'back' && !p.exposed)) return 'birch';
   return choice.carcass;
 }
 const first = (pred) => DATA.parts.find(pred)?.finish ?? 'birch';

@@ -43,8 +43,12 @@ struct ContentView: View {
             Panel {
                 Text("Plywise").font(.largeTitle.bold())
                 Text("Make room.").font(.title3.weight(.semibold)).foregroundStyle(.secondary)
-                Text("Scan your room, tap a wall, and Plywise designs a cabinet that fits the space, life-size, in the room.")
-                    .font(.callout).foregroundStyle(.secondary)
+                Text("What are you building?").font(.headline)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    ForEach(ARController.projects) { p in
+                        ProjectTile(project: p, selected: p.id == ar.project) { ar.project = p.id }
+                    }
+                }
                 Button { ar.startScan() } label: {
                     Label("Scan the room", systemImage: "viewfinder").frame(maxWidth: .infinity)
                 }
@@ -61,8 +65,7 @@ struct ContentView: View {
             Panel { ProgressView("Measuring your walls...") }
         case .pickWall:
             Panel {
-                Text("Tap the wall where the vanity goes. Plywise sizes it to the clear space, around doors and the toilet.")
-                    .font(.callout)
+                Text(pickWallHint).font(.callout)
                 Button("Scan again") { ar.startScan() }
             }
         case .placed:
@@ -75,6 +78,16 @@ struct ContentView: View {
         }
     }
 
+    private var pickWallHint: String {
+        let around: String
+        switch ar.project {
+        case "vanity": around = "around doors and the toilet, centred on your old sink"
+        case "bookcase": around = "wall to wall and up to the ceiling, around doors and windows"
+        default: around = "around doors, and under windows when the sill is high enough"
+        }
+        return "Tap the wall where the \(ar.current.noun) goes. Plywise sizes it to the clear space, \(around)."
+    }
+
     private var placedControls: some View {
         Panel {
             ForEach(ar.notes, id: \.self) { note in
@@ -82,12 +95,17 @@ struct ContentView: View {
             }
             HStack {
                 Menu {
+                    ForEach(ARController.projects.filter(\.ready)) { p in
+                        Button { ar.setProject(p.id) } label: { checkLabel(p.name, p.id == ar.project) }
+                    }
+                } label: { MenuChip(title: "Build", value: ar.current.name.components(separatedBy: " ").last?.capitalized ?? "") }
+                Menu {
                     ForEach(ARController.styles, id: \.preset) { s in
                         Button { ar.setStyle(s.preset) } label: { checkLabel(s.name, s.preset == ar.stylePreset) }
                     }
                 } label: { MenuChip(title: "Style", value: ARController.styles.first { $0.preset == ar.stylePreset }?.name ?? "") }
                 Menu {
-                    Button { ar.setWidth(nil) } label: { checkLabel("Best fit", ar.widthChoice == nil) }
+                    Button { ar.setWidth(nil) } label: { checkLabel(ar.project == "bookcase" ? "Fill the wall" : "Best fit", ar.widthChoice == nil) }
                     ForEach(ar.widthOptions, id: \.self) { w in
                         Button { ar.setWidth(w) } label: { checkLabel("\(Int((w / 25.4).rounded()))\"", ar.widthChoice == w) }
                     }
@@ -97,7 +115,7 @@ struct ContentView: View {
                 HStack {
                     finishMenu("Fronts", .fronts, choice.fronts, design)
                     finishMenu("Cabinet", .cabinet, choice.cabinet, design)
-                    finishMenu("Top", .top, choice.top, design)
+                    if design.parts.contains(where: { $0.role == "top" }) { finishMenu("Top", .top, choice.top, design) }
                 }
             }
             HStack(spacing: 10) {
@@ -128,6 +146,32 @@ struct ContentView: View {
     private func nudge(_ icon: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: icon).frame(width: 36, height: 30) }
             .buttonStyle(.bordered)
+    }
+}
+
+/// One choice in "What are you building?"; builds that aren't ready yet show as coming soon.
+struct ProjectTile: View {
+    let project: ARController.Project
+    let selected: Bool
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: project.icon).font(.title3).frame(width: 26)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(project.name).font(.footnote.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                    Text(project.ready ? project.room : "Coming soon").font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 9)
+            .frame(maxWidth: .infinity)
+            .background(selected ? Color.accentColor.opacity(0.18) : Color.clear, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(selected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: selected ? 2 : 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(!project.ready)
+        .opacity(project.ready ? 1 : 0.45)
     }
 }
 

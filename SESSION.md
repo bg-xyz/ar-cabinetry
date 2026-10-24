@@ -144,3 +144,23 @@ Blake has an **iPhone 12 Pro** (LiDAR, RoomPlan supported). He OK'd the placehol
 
 **Continued:** plywise.xyz certificate was stuck (domain added before DNS existed); removing + re-adding the custom domain issued it at once; **HTTPS enforced**, http redirects. **App 0.2 (build 9)**: `Engine.swift` runs `plywise-engine.js` in JavaScriptCore; `RoomAnalysis.swift` turns the scan into obstacles along the tapped wall (doors/openings/windows in the wall plane; toilet, tub, sink, storage, appliances within ~45 cm of it; furniture ignored) and the old sink's centre; tap a wall -> `Plywise.plan` -> placed at the planned x0 with the planner's notes shown; Style (4 presets) and Width (Best fit + standard widths that fit) menus re-plan on the phone. Scanning now uses a custom `RoomCaptureSession(arSession:)`: walls teal, doors orange, windows blue, openings yellow, fixtures as boxes with labels, wall lengths in feet-inches written on the walls, live summary ("4 walls · 1 door · sink ✓") + coaching ("Slow down"); `RoomBuilder(.beautifyObjects)` for the final room. Compiled first try. Build 7 passed beta review (Noah invited); build 9 added to Friends, waiting for beta review.
 **Untested on a device yet:** label orientation, the scan overlay density, how well RoomPlan finds the sink/toilet in Blake's bathroom.
+
+---
+
+## 2026-10-23: Session 2 (cont.): "What are you building?" (app 0.3)
+
+**Blake's idea:** ask what kind of build before the scan (kitchen vs bathroom vs bedroom vs shelves) so the app knows what to serve.
+
+**Done:**
+- Start screen: **"What are you building?"**: Bathroom vanity, Built-in bookcase, Media console, Dresser (working); Closet system and Kitchen (shown as coming soon). Remembered between launches. After placing, a **Build** menu switches the build on the same wall without rescanning.
+- Engine: new **`open` zone** (open shelving, no fronts). Where open shelving meets fronts, a **fixed shelf in a dado** closes the cabinet off; an open top gets a **full top panel** instead of stretchers; a back seen through open shelving takes the cabinet finish (app + web preview).
+- **`plan({ project, wallLength, wallHeight, obstacles })`** dispatches per build:
+  - vanity: as before.
+  - bookcase: fills the widest clear stretch wall to wall, bays of 36" or less (no shelf sag), 30" doors below + adjustable shelves above, toe-kick, end panels both sides. Height = ceiling - 1.5" (scribe), capped at 94.5" total (end panels come off a 2440 sheet), and short enough to tip up (diagonal check).
+  - console (on 6" legs, 20" box, 17" deep, 36-84", doors at the ends, drawers between) and dresser (on 5" legs, 27" box, 19" deep, 30-72", banks of 3 drawers + a 5" top drawer, banks of 30" or less).
+  - Windows: the app now sends **sill heights**; a window blocks only when its sill is lower than the top of the build (a bookcase always, a vanity/console/dresser goes under a normal window). The wall height from RoomPlan is the ceiling.
+  - Returns `widthOptions` for the Width menu ("Fill the wall" for bookcases).
+- Tests: **115 pass**, including every build × 6 wall lengths × 3 ceilings → valid job + clean joinery (mutation-checked: removing the fixed-shelf dado fails 18 tests). Test geometry helpers moved to `test/geometry.ts`.
+- New sample specs (site demos): `bookcase-108-builtin` (white oak), `dresser-60-walnut` (recessed inset).
+
+**Ideas for later:** bookcases flanking a window with a window seat between; closets (hanging rods = open zone + rod fixture, 24" deep); kitchens last.

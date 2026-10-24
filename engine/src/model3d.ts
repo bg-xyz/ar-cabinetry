@@ -18,11 +18,12 @@ function cutBoxes(p: Part): { min: number[]; max: number[] }[] {
   });
 }
 
-// Which finish a part shows. Drawer boxes and backs stay natural birch whatever the style.
+// Which finish a part shows. Drawer boxes and hidden backs stay natural birch whatever the style;
+// a back you see through open shelving matches the cabinet.
 export function finishFor(p: Part, s: Style): string {
   if (p.role === 'door' || p.role === 'drawerFront' || p.role === 'endPanel') return s.frontFinish;
   if (p.role === 'top') return s.topFinish;
-  if (p.role.startsWith('drawer') || p.role === 'back') return 'birch';
+  if (p.role.startsWith('drawer') || (p.role === 'back' && !p.exposed)) return 'birch';
   return s.carcassFinish;
 }
 

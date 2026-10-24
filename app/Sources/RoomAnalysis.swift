@@ -9,6 +9,7 @@ struct WallFrame {
     let c: SIMD3<Float>
     let length: Float
     let floorY: Float
+    let height: Float   // floor to ceiling, metres
 
     /// Position along the wall in mm from its left end.
     func along(_ p: SIMD3<Float>) -> Double { Double((simd_dot(p - c, x) + length / 2) * 1000) }
@@ -30,7 +31,8 @@ enum RoomAnalysis {
             let p = position(s.transform)
             guard abs(f.out(p)) < 0.3, abs(simd_dot(p - f.c, f.x)) < f.length / 2 + 0.1 else { continue }
             let mid = f.along(p), half = Double(s.dimensions.x) * 500
-            out.append(.init(kind: kind, x0: mid - half, x1: mid + half))
+            let sill = kind == "window" ? Double((p.y - s.dimensions.y / 2 - f.floorY) * 1000) : nil
+            out.append(.init(kind: kind, x0: mid - half, x1: mid + half, bottom: sill))
         }
 
         // fixtures standing against this wall

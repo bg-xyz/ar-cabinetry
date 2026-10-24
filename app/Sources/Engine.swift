@@ -10,8 +10,11 @@ struct PlanInput: Encodable {
         let kind: String
         let x0: Double
         let x1: Double
+        var bottom: Double? = nil        // windows: sill height above the floor, mm
     }
+    var project: String                  // vanity, bookcase, console, dresser
     var wallLength: Double               // mm
+    var wallHeight: Double?              // floor to ceiling, mm
     var obstacles: [Obstacle] = []
     var sinkAt: Double?                  // mm from the wall's left end
     var width: Double?                   // mm; nil = largest that fits
@@ -19,10 +22,12 @@ struct PlanInput: Encodable {
 }
 
 struct PlanResult: Decodable {
+    let project: String
     let x0: Double
     let width: Double
     let sinks: Int
     let span: [Double]
+    let widthOptions: [Double]
     let notes: [String]
     let name: String
 }
@@ -57,7 +62,7 @@ final class Engine {
         let error: String?
     }
 
-    /// Plan a vanity for a measured wall and build its 3D model.
+    /// Plan the chosen build for a measured wall and build its 3D model.
     func plan(_ input: PlanInput) throws -> (PlanResult, Design) {
         let json = String(data: try JSONEncoder().encode(input), encoding: .utf8) ?? "{}"
         guard let fn = context.objectForKeyedSubscript("Plywise")?.objectForKeyedSubscript("plan"),

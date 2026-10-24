@@ -66,16 +66,24 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
   add({ id: id('bottom'), name: 'Bottom', role: 'bottom', material: style.carcass,
     box: { min: [bx, 0, 0], size: [between, t, D] }, faceA: '+y', grain: 0, exposed: true,
     ops: [{ kind: 'pocket', from: [bx, t, bs], to: [bx + between, t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
-  add({ id: id('stretcher-F'), name: 'Front stretcher', role: 'stretcher', material: style.carcass,
-    box: { min: [bx, H - t, D - sw], size: [between, t, sw] }, faceA: '+y', grain: 0, exposed: false, ops: [] });
-  add({ id: id('stretcher-R'), name: 'Rear stretcher', role: 'stretcher', material: style.carcass,
-    box: { min: [bx, H - t, 0], size: [between, t, sw] }, faceA: '-y', grain: 0, exposed: false,
-    ops: [{ kind: 'pocket', from: [bx, H - t, bs], to: [bx + between, H - t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
+  if (spec.zones[spec.zones.length - 1]?.type === 'open') {
+    // open shelving at the top: you see up into it, so a full top panel instead of stretchers
+    add({ id: id('top-panel'), name: 'Top panel', role: 'stretcher', material: style.carcass,
+      box: { min: [bx, H - t, 0], size: [between, t, D] }, faceA: '-y', grain: 0, exposed: true,
+      ops: [{ kind: 'pocket', from: [bx, H - t, bs], to: [bx + between, H - t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
+  } else {
+    add({ id: id('stretcher-F'), name: 'Front stretcher', role: 'stretcher', material: style.carcass,
+      box: { min: [bx, H - t, D - sw], size: [between, t, sw] }, faceA: '+y', grain: 0, exposed: false, ops: [] });
+    add({ id: id('stretcher-R'), name: 'Rear stretcher', role: 'stretcher', material: style.carcass,
+      box: { min: [bx, H - t, 0], size: [between, t, sw] }, faceA: '-y', grain: 0, exposed: false,
+      ops: [{ kind: 'pocket', from: [bx, H - t, bs], to: [bx + between, H - t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
+  }
   add({ id: id('rail'), name: 'Hanging rail', role: 'rail', material: style.carcass,
     box: { min: [t, H - t - 100, 0], size: [W - 2 * t, 100, bs] }, faceA: '+z', grain: 0, exposed: false, ops: [] });
   const backW = W - 2 * t + 2 * gd - 1, backH = H - 2 * t + 2 * gd - 1;
   add({ id: id('back'), name: 'Back', role: 'back', material: style.back,
-    box: { min: [t - gd + 0.5, t - gd + 0.5, bs], size: [backW, backH, bt] }, faceA: '+z', grain: 1, exposed: false,
+    box: { min: [t - gd + 0.5, t - gd + 0.5, bs], size: [backW, backH, bt] }, faceA: '+z', grain: 1,
+    exposed: spec.zones.some((z) => z.type === 'open'), // seen through open shelving
     ops: opts.backCutouts ?? [] });
 
   // ---- front layout ---------------------------------------------------------
@@ -90,6 +98,23 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     const span = { zone, y0: y, y1: y + heights[i] };
     y += heights[i] + style.gap;
     return span;
+  });
+
+  // Fixed shelves: where open shelving meets fronts, a shelf in a dado closes the cabinet off.
+  // fixedTop[i] is the top of the shelf between zone i and zone i+1.
+  const fixedTop = zoneSpans.map((span, i): number | undefined => {
+    const next = zoneSpans[i + 1];
+    if (!next || (span.zone.type === 'open') === (next.zone.type === 'open')) return undefined;
+    if (span.zone.type !== 'open') return inset ? span.y1 + style.gap + t : span.y1 + style.topReveal;
+    return inset ? next.y0 - style.gap : next.y0 - style.bottomReveal + t;
+  });
+  fixedTop.forEach((top, i) => {
+    if (top === undefined) return;
+    const z0 = bs + bt + GFIT;
+    add({ id: id(`fixed-shelf-${i + 1}`), name: 'Fixed shelf', role: 'shelf', material: style.carcass,
+      box: { min: [bx, top - t, z0], size: [between, t, D - z0] }, faceA: '+y', grain: 0, exposed: true, ops: [] });
+    for (const [side, sx] of [[sideL, t], [sideR, W - t]] as const)
+      side.ops.push({ kind: 'pocket', from: [sx, top - t - FIT, bs + bt], to: [sx, top, D], depth: dd, note: 'fixed shelf dado' });
   });
 
   const hinge = lookup(cat.hinges, style.hinge, 'hinge');
@@ -118,6 +143,10 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
 
   zoneSpans.forEach(({ zone, y0, y1 }, zi) => {
     const fz: Vec3 = [0, y0, frontBackZ];
+    if (zone.type === 'open') {
+      if (zone.shelves) addShelves(zone.shelves, y0, y1, zi, y0);
+      return;
+    }
     if (zone.type === 'doors') {
       const xm = (region.x0 + region.x1) / 2;
       const doors = zone.count === 2
@@ -160,8 +189,10 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
     gripHardware(1);
 
     const above = zoneSpans[zi + 1];
-    const runnerY = Math.max(t, inset ? y0 - style.gap : y0);
-    const ceiling = above ? (above.zone.type === 'drawer' ? Math.max(t, inset ? above.y0 - style.gap : above.y0) : above.y0) : H - t;
+    const below = zi > 0 ? fixedTop[zi - 1] : undefined;
+    const runnerY = below ?? Math.max(t, inset ? y0 - style.gap : y0);
+    const ceiling = fixedTop[zi] !== undefined ? fixedTop[zi]! - t
+      : above ? (above.zone.type === 'drawer' ? Math.max(t, inset ? above.y0 - style.gap : above.y0) : above.y0) : H - t;
     addDrawerBox({ zi, runnerY, ceiling });
   });
 

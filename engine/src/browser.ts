@@ -1,7 +1,7 @@
 // Entry point for the phone (JavaScriptCore) and the web: the whole engine in one file, catalog
 // included, no file access. Built by `npm run bundle` into app/Resources/plywise-engine.js.
 //
-//   Plywise.plan(json)   -> { plan, model }   PlanInput in (a measured wall), 3D model + where it goes out
+//   Plywise.plan(json)   -> { plan, model }   PlanInput in (a measured wall + what's being built), 3D model + where it goes out
 //   Plywise.design(json) -> model              any RunSpec -> 3D model
 // Strings in and out, so Swift only deals with JSON. Errors come back as { error }.
 
@@ -14,7 +14,7 @@ import faucets from '../catalog/faucets.json' with { type: 'json' };
 import finishes from '../catalog/finishes.json' with { type: 'json' };
 import { designRun } from './run.ts';
 import { model3d } from './model3d.ts';
-import { planVanity } from './planner.ts';
+import { plan } from './planner.ts';
 import type { Catalog, RunSpec } from './types.ts';
 import type { PlanInput } from './planner.ts';
 
@@ -30,11 +30,14 @@ function guard(fn: () => unknown): string {
 }
 
 export const Plywise = {
-  version: '0.2.0',
+  version: '0.3.0',
   design: (json: string) => guard(() => model(JSON.parse(json) as RunSpec)),
   plan: (json: string) => guard(() => {
-    const p = planVanity(JSON.parse(json) as PlanInput);
-    return { plan: { x0: p.x0, width: p.width, sinks: p.sinks, span: p.span, spans: p.spans, notes: p.notes, name: p.spec.name }, model: model(p.spec) };
+    const p = plan(JSON.parse(json) as PlanInput);
+    return {
+      plan: { project: p.project, x0: p.x0, width: p.width, sinks: p.sinks, span: p.span, spans: p.spans, widthOptions: p.widthOptions, notes: p.notes, name: p.spec.name },
+      model: model(p.spec),
+    };
   }),
 };
 

@@ -181,7 +181,8 @@ export interface Style {
 
 export type Zone =
   | { type: 'drawer'; size: number | 'fill' }
-  | { type: 'doors'; size: number | 'fill'; count: 1 | 2; hinge?: 'left' | 'right'; shelves?: number };
+  | { type: 'doors'; size: number | 'fill'; count: 1 | 2; hinge?: 'left' | 'right'; shelves?: number }
+  | { type: 'open'; size: number | 'fill'; shelves?: number }; // open shelving, no fronts
 
 export interface CabinetSpec {
   id: string;

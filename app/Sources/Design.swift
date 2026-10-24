@@ -36,12 +36,16 @@ struct Design: Decodable, Identifiable {
         let id: String
         let name: String
         let role: String
+        let exposed: Bool?
         let box: Box
         let finish: String
         let grainAxis: Int?
         let thicknessAxis: Int
         let plies: Int
         let cuts: [Cut]
+
+        /// Which finish menu controls it; a back seen through open shelving follows the cabinet.
+        var slot: FinishSlot { role == "back" && exposed == true ? .cabinet : FinishSlot(role: role) }
     }
 
     struct Fixture: Decodable {
@@ -63,12 +67,12 @@ struct Design: Decodable, Identifiable {
 
     /// The finish this design starts with for a slot (fronts / cabinet / top).
     func initialFinish(_ slot: FinishSlot) -> String {
-        parts.first { FinishSlot(role: $0.role) == slot }?.finish ?? "birch"
+        parts.first { $0.slot == slot }?.finish ?? "birch"
     }
 }
 
-/// Which finish menu controls a part. Drawer boxes and backs stay natural birch
-/// (mirrors finishFor() in engine/src/job.ts).
+/// Which finish menu controls a part. Drawer boxes and hidden backs stay natural birch
+/// (mirrors finishFor() in engine/src/model3d.ts).
 enum FinishSlot: Equatable {
     case fronts, cabinet, top, fixedBirch
 

@@ -156,8 +156,8 @@ struct FinishChoice: Equatable {
         top = design.initialFinish(.top)
     }
 
-    func finish(for role: String) -> String {
-        switch FinishSlot(role: role) {
+    func finish(for part: Design.Part) -> String {
+        switch part.slot {
         case .fronts: return fronts
         case .cabinet: return cabinet
         case .top: return top
@@ -181,7 +181,7 @@ enum CabinetBuilder {
             var mesh = MeshBuilder()
             for piece in pieces(part) { addPart(part, piece: piece, to: &mesh) }
             guard !mesh.isEmpty, let resource = try? mesh.resource() else { continue }
-            let id = choice.finish(for: part.role)
+            let id = choice.finish(for: part)
             guard let finish = design.finishes[id] else { continue }
             let model = ModelEntity(mesh: resource, materials: [lib.wood(finish, id: id, edge: false), lib.wood(finish, id: id, edge: true)])
             model.name = part.id

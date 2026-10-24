@@ -4,14 +4,33 @@ import RealityKit
 import RoomPlan
 import UIKit
 
-/// Owns the AR view and the whole flow: scan the room (RoomPlan, drawn live as it's measured) ->
-/// tap a wall -> the engine plans a cabinet for that wall's clear space -> it locks onto the wall ->
+/// Owns the AR view and the whole flow: pick what you're building -> scan the room (RoomPlan, drawn
+/// live as it's measured) -> tap a wall -> the engine plans that build for the wall's clear space and
+/// ceiling height -> it locks onto the wall ->
 /// look at it from every angle, change style, width and finishes, nudge it.
 /// RoomPlan scans on the AR view's own session, so the walls it measures and the cabinet we draw
 /// share one coordinate system: nothing has to be re-aligned after the scan.
 @MainActor
 final class ARController: ObservableObject {
     enum Phase { case start, scanning, processing, pickWall, placed, unsupported }
+
+    /// What you can build. The planner knows the rules for each; the rest are on the way.
+    struct Project: Identifiable {
+        let id: String
+        let name: String
+        let noun: String
+        let room: String
+        let icon: String
+        let ready: Bool
+    }
+    static let projects: [Project] = [
+        .init(id: "vanity", name: "Bathroom vanity", noun: "vanity", room: "Bathroom", icon: "drop.fill", ready: true),
+        .init(id: "bookcase", name: "Built-in bookcase", noun: "bookcase", room: "Living room, office", icon: "books.vertical.fill", ready: true),
+        .init(id: "console", name: "Media console", noun: "console", room: "Living room", icon: "tv.fill", ready: true),
+        .init(id: "dresser", name: "Dresser", noun: "dresser", room: "Bedroom", icon: "cabinet.fill", ready: true),
+        .init(id: "closet", name: "Closet system", noun: "closet", room: "Bedroom", icon: "hanger", ready: false),
+        .init(id: "kitchen", name: "Kitchen", noun: "kitchen", room: "Kitchen", icon: "refrigerator.fill", ready: false),
+    ]
 
     static let styles: [(name: String, preset: String)] = [
         ("Classic Euro", "classic-euro"), ("Milan flush", "milan-flush"), ("Recessed inset", "recessed-inset"), ("Ply inset", "ply-inset"),
@@ -25,8 +44,13 @@ final class ARController: ObservableObject {
     @Published var design: Design?
     @Published var plan: PlanResult?
     @Published var choice: FinishChoice?
+    @Published var project = UserDefaults.standard.string(forKey: "project") ?? "vanity" {
+        didSet { UserDefaults.standard.set(project, forKey: "project") }
+    }
     @Published var stylePreset = "classic-euro"
-    @Published var widthChoice: Double?   // mm; nil = largest that fits
+    @Published var widthChoice: Double?   // mm; nil = best fit
+
+    var current: Project { Self.projects.first { $0.id == project } ?? Self.projects[0] }
 
     let arView = ARView(frame: .zero, cameraMode: .ar, automaticallyConfigureSession: false)
 
@@ -213,7 +237,7 @@ final class ARController: ObservableObject {
         roomAnchor.isEnabled = true
         notes = []
         phase = .pickWall
-        status = room.walls.isEmpty ? "No walls found. Try scanning again." : "Tap the wall for your vanity"
+        status = room.walls.isEmpty ? "No walls found. Try scanning again." : "Tap the wall for your \(current.noun)"
     }
 
     private func tapped(at point: CGPoint) {
@@ -227,7 +251,7 @@ final class ARController: ObservableObject {
         let along = simd_normalize(SIMD3<Float>(w.transform.columns.0.x, 0, w.transform.columns.0.z))
         var z = simd_cross(along, y)
         if simd_dot(z, arView.cameraTransform.translation - c) < 0 { z = -z }   // into the room, toward you
-        return WallFrame(x: simd_cross(y, z), z: z, c: c, length: w.dimensions.x, floorY: c.y - w.dimensions.y / 2)
+        return WallFrame(x: simd_cross(y, z), z: z, c: c, length: w.dimensions.x, floorY: c.y - w.dimensions.y / 2, height: w.dimensions.y)
     }
 
     private func place(on w: CapturedRoom.Surface) {
@@ -239,11 +263,12 @@ final class ARController: ObservableObject {
         replan()
     }
 
-    /// Ask the engine for the best cabinet for this wall's clear space, then show it.
+    /// Ask the engine for the best build for this wall's clear space and height, then show it.
     func replan() {
         guard let w = wall, let f = frame, let room else { return }
         let (obstacles, sinkAt) = RoomAnalysis.obstacles(on: w, frame: f, room: room)
-        let input = PlanInput(wallLength: Double(f.length * 1000), obstacles: obstacles, sinkAt: sinkAt,
+        let input = PlanInput(project: project, wallLength: Double(f.length * 1000), wallHeight: Double(f.height * 1000),
+                              obstacles: obstacles, sinkAt: project == "vanity" ? sinkAt : nil,
                               width: widthChoice, style: ["preset": stylePreset])
         do {
             let (p, d) = try Engine.shared.plan(input)
@@ -297,18 +322,22 @@ final class ARController: ObservableObject {
         replan()
     }
 
+    /// Switch what's being built on the same wall, no rescan.
+    func setProject(_ id: String) {
+        project = id
+        widthChoice = nil
+        along = 0
+        replan()
+    }
+
     func setWidth(_ mm: Double?) {
         widthChoice = mm
         along = 0
         replan()
     }
 
-    /// Standard widths that fit the clear stretch the cabinet sits in.
-    var widthOptions: [Double] {
-        guard let span = plan?.span, span.count == 2 else { return [] }
-        let avail = span[1] - span[0] - 25.4
-        return [24, 30, 36, 42, 48, 54, 60, 66, 72, 84].map { $0 * 25.4 }.filter { $0 <= avail + 0.01 }
-    }
+    /// Other widths that fit the clear stretch (from the planner).
+    var widthOptions: [Double] { plan?.widthOptions ?? [] }
 
     func setFinish(_ slot: FinishSlot, _ id: String) {
         guard var c = choice else { return }
