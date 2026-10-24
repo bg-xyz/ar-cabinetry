@@ -113,8 +113,8 @@ test('a 72" dresser is two banks of drawers, a 36" one is a single bank', () => 
 });
 
 // every project at a spread of wall lengths and ceilings must build, cut and assemble cleanly
-const projects: Project[] = ['vanity', 'bookcase', 'console', 'dresser'];
-for (const project of projects) for (const wall of [40, 52, 66, 80, 100, 150]) for (const ceiling of project === 'bookcase' ? [84, 96, 108] : [96]) {
+const projects: Project[] = ['vanity', 'bookcase', 'console', 'dresser', 'desk', 'bar'];
+for (const project of projects) for (const wall of project === 'desk' ? [52, 66, 80, 100, 150] : [40, 52, 66, 80, 100, 150]) for (const ceiling of project === 'bookcase' ? [84, 96, 108] : [96]) {
   test(`${project} on a ${wall}" wall${project === 'bookcase' ? `, ${ceiling}" ceiling` : ''}: valid job, clean joinery`, () => {
     const p = plan({ project, wallLength: wall * IN, wallHeight: ceiling * IN });
     assert.ok(p.width <= wall * IN - IN + 0.01, `width ${p.width / IN}"`);
@@ -220,4 +220,47 @@ test('furniture on legs comes with an anti-tip kit; islands fix to the floor; ev
   const isl = designRun(plan({ project: 'island', wallLength: 180 * IN }).spec, cat);
   assert.ok(isl.sides.every((s) => !s.finished));
   assert.ok(isl.hardware.some((h) => /floor cleats/.test(h.item)));
+});
+
+test('a desk: file pedestals in the golden section, a 30"+ knee space carried on a desk rail and a wall cleat', () => {
+  for (const [wall, peds] of [[50, 1], [62, 1], [74, 2], [100, 2]] as const) {
+    const p = plan({ project: 'desk', wallLength: wall * IN });
+    const knee = p.spec.cabinets.find((c) => c.knee)!;
+    assert.equal(p.spec.cabinets.filter((c) => !c.knee).length, peds, `${wall}"`);
+    assert.ok(knee.width >= 30 * IN - 0.5, `${wall}": knee ${knee.width / IN}"`);
+    const d = designRun(p.spec, cat);
+    assert.ok(d.parts.some((x) => x.id === `${knee.id}-desk-rail`) && d.parts.some((x) => x.id === `${knee.id}-wall-cleat`));
+    assert.ok(!d.parts.some((x) => x.cabinet === knee.id && x.role === 'side'), 'no box in the knee space');
+    const top = d.parts.find((x) => x.role === 'top')!;
+    assert.ok(Math.abs(top.box.min[1] + top.box.size[1] + 4 * IN - 30 * IN) < 1, 'writing height 30"');
+    // sides beside the knee show: no confirmats through them, and no connectors across the knee
+    for (const s of d.sides.filter((x) => /side/.test(x.part))) {
+      const i = p.spec.cabinets.findIndex((c) => s.part.startsWith(`${c.id}-`));
+      const next = p.spec.cabinets[s.part.endsWith('-L') ? i - 1 : i + 1];
+      if (next?.knee) assert.equal(s.finished, true, s.part);
+    }
+    assert.ok(!d.hardware.some((h) => /connector/.test(h.item)));
+    assert.ok(d.install.some((x) => /Knee space/.test(x)));
+    const flat = buildJob(d, cat, { units: 'in', toolDia: 6.35 });
+    assert.ok(flat);
+  }
+  const one = plan({ project: 'desk', wallLength: 62 * IN }).spec.cabinets;
+  assert.ok(Math.abs(one.find((c) => !c.knee)!.width / (one[0].width + one[1].width) - 0.382) < 0.02);
+});
+
+test('a coffee bar: 36" counter wall to wall, bays no wider than 36", mirrored', () => {
+  const p = plan({ project: 'bar', wallLength: 88 * IN });
+  const ws = p.spec.cabinets.map((c) => c.width);
+  assert.ok(ws.every((w) => w <= 36 * IN + 0.5));
+  const kinds = p.spec.cabinets.map((c) => c.zones[0].type);
+  assert.deepEqual(kinds, [...kinds].reverse());
+  assert.ok(p.spec.walls?.left !== undefined && p.spec.walls?.right !== undefined, 'fillers at both walls');
+  const d = designRun(p.spec, cat);
+  const top = d.parts.find((x) => x.role === 'top')!;
+  assert.ok(Math.abs(top.box.min[1] + top.box.size[1] + 4 * IN - 36 * IN) < 1, 'counter height 36"');
+  assert.ok(top.box.size[0] <= 2400 + 0.5);
+  // a long wall: stops short of the walls, end panels both ends
+  const long = plan({ project: 'bar', wallLength: 150 * IN });
+  assert.equal(long.spec.endPanels, 'both');
+  assert.ok(!long.spec.walls);
 });

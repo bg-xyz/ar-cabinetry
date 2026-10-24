@@ -190,6 +190,8 @@ struct ContentView: View {
         switch ar.project {
         case "vanity": around = "around doors and the toilet, centred on your old sink"
         case "bookcase": around = "wall to wall and up to the ceiling, around doors and windows"
+        case "desk": around = "with file pedestals and a knee space at least 30\" wide, around doors and under high windows"
+        case "bar": around = "wall to wall at counter height, around doors and under high windows"
         case "island": return "Tap the wall your counters are on. The island stands 42\" in front of them, facing them, with room to walk round each end."
         default: around = "around doors, and under windows when the sill is high enough"
         }
@@ -311,7 +313,7 @@ struct ContentView: View {
         case .build: return ARController.projects.filter(\.ready).map { .init(id: $0.id, title: $0.name.components(separatedBy: " ").last?.capitalized ?? $0.name, detail: $0.room) }
         case .style: return ARController.styles.map { .init(id: $0.preset, title: $0.name, detail: $0.hint) }
         case .width:
-            let fit = RollPicker.Item(id: "fit", title: ar.project == "bookcase" ? "Fill" : "Best fit", detail: "planned")
+            let fit = RollPicker.Item(id: "fit", title: ar.project == "bookcase" || ar.project == "bar" ? "Fill" : "Best fit", detail: "planned")
             return [fit] + ar.widthOptions.map { .init(id: String(Int($0)), title: "\(Int(($0 / 25.4).rounded()))\"", detail: "\(Int($0)) mm") }
         case .grain: return ARController.grains.map { .init(id: $0.id, title: $0.name, detail: $0.hint) }
         case .fronts, .cabinet, .top: return ar.design.map(finishItems) ?? []
@@ -350,6 +352,7 @@ struct ContentView: View {
             }
             if let link = ar.shareLink {
                 Button { shareItem = ShareItem(items: [link]) } label: { Label("Share the design (3D link)", systemImage: "link") }
+                Button { UIApplication.shared.open(link) } label: { Label("Edit in Blender or any AI", systemImage: "cube.transparent") }
             }
             Button {
                 ar.photoKit { image, prompt in

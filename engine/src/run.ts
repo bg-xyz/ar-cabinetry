@@ -104,6 +104,7 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
   const fillerL = fit.fillerL > 0, fillerR = fit.fillerR > 0;
 
   spec.cabinets.forEach((c, i) => {
+    if (c.knee) { parts.push(...knee(c.id, xAt[c.id], c.width, H, D, t, style.carcass)); return; }
     // an end panel or a filler beside the end box: its fronts run out to the full gap
     const endGap = { left: (panelL || fillerL) && i === 0, right: (panelR || fillerR) && i === spec.cabinets.length - 1 };
     const r = buildCabinet(c, style, cat, { ...cabOpts[c.id], endGap });
@@ -178,7 +179,9 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
   const n = spec.cabinets.length;
   const why = (i: number, side: 'L' | 'R'): string | null => {
     const first = side === 'L' ? i === 0 : i === n - 1;
-    if (!first) return `against ${spec.cabinets[side === 'L' ? i - 1 : i + 1].id}`;
+    const next = first ? undefined : spec.cabinets[side === 'L' ? i - 1 : i + 1];
+    if (next?.knee) return null;   // beside a knee space: it shows
+    if (next) return `against ${next.id}`;
     if (side === 'L' ? panelL : panelR) return 'behind the end panel';
     if (side === 'L' ? fillerL : fillerR) return 'against the wall, behind the scribe filler';
     return null;
@@ -199,6 +202,17 @@ export function designRun(input: RunSpec, cat: Catalog): Design {
     spec, style, parts, hardware: mergeHardware(hardware), fixtures, warnings, sides: fastening.sides, install,
     overall: { width: totalW + (panelL ? epT : 0) + (panelR ? epT : 0), height: H + topT, depth: topFrontZ + backT + (spec.top?.overhangBack ?? 0), elevation: elev },
   };
+}
+
+// Knee space (desks): no box. A desk rail under the front of the top stiffens it across the gap, and a
+// cleat on the wall carries its back edge; both are pocket-screwed to the boxes or end panel beside them.
+function knee(id: string, x0: number, W: number, H: number, D: number, t: number, material: string): Part[] {
+  return [
+    { id: `${id}-desk-rail`, name: 'Desk rail (stiffens the top over the knee space)', cabinet: id, role: 'rail', material,
+      box: { min: [x0, H - 90, D - 40 - t], size: [W, 90, t] }, faceA: '+z', grain: 0, exposed: true, ops: [] },
+    { id: `${id}-wall-cleat`, name: 'Wall cleat (screwed to the studs, carries the back of the top)', cabinet: id, role: 'rail', material,
+      box: { min: [x0, H - 75, 0], size: [W, 75, t] }, faceA: '+z', grain: 0, exposed: false, ops: [] },
+  ];
 }
 
 // Toe-kick plinth under one cabinet: a ladder of front rail (set back for toes), back rail

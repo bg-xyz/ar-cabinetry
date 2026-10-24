@@ -1,0 +1,74 @@
+{
+  "name": "84\" coffee bar, white oak",
+  "units": "mm",
+  "style": {
+    "preset": "ply-inset",
+    "grainMatch": "across",
+    "frontFinish": "white-oak",
+    "carcassFinish": "white-oak",
+    "topFinish": "white-oak"
+  },
+  "mounting": "toe-kick",
+  "elevation": 0,
+  "kickHeight": 101.6,
+  "endPanels": "none",
+  "cabinets": [
+    {
+      "id": "A",
+      "width": 711.2,
+      "height": 794.8,
+      "depth": 577.9,
+      "zones": [
+        {
+          "type": "doors",
+          "size": "fill",
+          "count": 2,
+          "shelves": 1
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "width": 711.2,
+      "height": 794.8,
+      "depth": 577.9,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "width": 711.2,
+      "height": 794.8,
+      "depth": 577.9,
+      "zones": [
+        {
+          "type": "doors",
+          "size": "fill",
+          "count": 2,
+          "shelves": 1
+        }
+      ]
+    }
+  ],
+  "top": {
+    "material": "bb18",
+    "overhangSides": 0,
+    "overhangFront": 25.4
+  },
+  "walls": {
+    "left": 12.7,
+    "right": 12.7
+  }
+}

@@ -18,6 +18,9 @@
   #inroom { margin-top: 10px; width: 100%; padding: 8px 10px; font: inherit; font-weight: 600; color: #1c1915; background: #c9a25e; border: 0; border-radius: 4px; cursor: pointer; }
   #photo { margin-top: 10px; width: 100%; padding: 8px 10px; font: inherit; font-weight: 600; color: #f1e6d6; background: #3e2a1e; border: 0; border-radius: 4px; cursor: pointer; }
   #photoNote { font-size: 12px; color: #555; margin-top: 6px; }
+  #further button { display: block; width: 100%; margin-top: 4px; padding: 5px 0; font: inherit; font-size: 13px; text-align: left; color: #3e2a1e; background: none; border: 0; border-bottom: 1px solid rgba(0,0,0,.08); cursor: pointer; }
+  #further [hidden] { display: none; }
+  #further textarea { width: 100%; height: 90px; margin-top: 6px; font: 11px ui-monospace, monospace; box-sizing: border-box; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -40,6 +43,16 @@
   <button id="inroom" hidden title="Opens Apple AR Quick Look: the piece life-size in your room">View in your room</button>
   <button id="photo" title="Downloads a clean render and copies a prompt: paste both into any image AI">Make it a photo</button>
   <div id="photoNote"></div>
+  <div id="further">
+    <div class="k">Take it further</div>
+    <button id="glb" title="glTF binary, metres, every part a named object: opens in Blender (free) and most 3D tools">Download 3D for Blender (.glb)</button>
+    <button id="usdzfile" title="USDZ: Reality Composer, Keynote, Blender">Download 3D (.usdz)</button>
+    <button id="aicopy" hidden title="Copies the design and instructions: paste into any AI chat and ask for changes">Edit with any AI (copy design)</button>
+    <button id="aipaste" hidden>Paste an edited design</button>
+    <textarea id="aitext" hidden placeholder="Paste the design the AI gave back, then press Load"></textarea>
+    <button id="aiload" hidden>Load it</button>
+    <div id="aiNote" class="k" style="text-transform:none;letter-spacing:0"></div>
+  </div>
 </div>
 <div id="hover"></div>
 <div id="hint">Drag to orbit &middot; scroll to zoom &middot; right-drag to pan</div>
@@ -49,6 +62,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
 const DATA = /*PARTS_JSON*/null;
 const $ = (id) => document.getElementById(id);
@@ -421,21 +435,30 @@ function arMaterial(m) {
   return arMats.get(m.uuid);
 }
 
-async function usdz() {
+// The piece on its own, in metres, centred on its footprint: one mesh per part, named after it.
+function exportRoot(material) {
   const root = new THREE.Group();
+  root.name = DATA.name;
   root.scale.setScalar(0.001);
   root.position.set(-ov.width / 2000, 0, -ov.depth / 2000);
   scene.updateMatrixWorld(true);
   const inv = group.matrixWorld.clone().invert();
   group.traverse((o) => {
     if (!o.isMesh || !o.visible) return;
-    let mat = Array.isArray(o.material) ? o.material[(o.userData?.thicknessAxis ?? o.parent?.userData?.thicknessAxis ?? 1) * 2] ?? o.material[0] : o.material;
-    mat = mat.isMeshStandardMaterial ? arMaterial(mat) : new THREE.MeshStandardMaterial({ color: mat.color ?? 0x888888 });
+    const mats = Array.isArray(o.material) ? o.material : null;
+    let mat = mats ? mats[(o.userData?.thicknessAxis ?? o.parent?.userData?.thicknessAxis ?? 1) * 2] ?? mats[0] : o.material;
+    mat = material(mat, mats);
     const m = new THREE.Mesh(o.geometry, mat);
+    m.name = o.name || o.parent?.name || '';
     m.matrix.copy(group.matrix).multiply(inv.clone().multiply(o.matrixWorld));
     m.matrix.decompose(m.position, m.quaternion, m.scale);
     root.add(m);
   });
+  return root;
+}
+
+async function usdz() {
+  const root = exportRoot((mat) => (mat.isMeshStandardMaterial ? arMaterial(mat) : new THREE.MeshStandardMaterial({ color: mat.color ?? 0x888888 })));
   const exporter = new USDZExporter();
   const opts = { quickLookCompatible: true, maxTextureSize: 512 };
   const data = exporter.parseAsync ? await exporter.parseAsync(root, opts) : await exporter.parse(root, opts);
@@ -456,6 +479,46 @@ if (arLink.relList?.supports?.('ar')) {
   });
 }
 window.__usdz = usdz;
+
+// Take it further: the model for Blender or any 3D tool, and the design as text for any AI to edit.
+// Plywise has no AI inside; the design format is plain JSON, and the engine rebuilds whatever comes
+// back by its own rules, so an edited design is still a buildable one (or it says why not).
+const fileBase = DATA.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+$('glb').addEventListener('click', async () => {
+  // full materials (veneer per face, normal + roughness maps) for editing
+  const root = exportRoot((mat, mats) => (mats ?? [mat]).find((x) => x.isMeshStandardMaterial) ?? mat);
+  const data = await new GLTFExporter().parseAsync(root, { binary: true, maxTextureSize: 1024 });
+  download(new Blob([data], { type: 'model/gltf-binary' }), `${fileBase}.glb`);
+});
+$('usdzfile').addEventListener('click', async () => download(await usdz(), `${fileBase}.usdz`));
+if (window.__spec) {
+  for (const id of ['aicopy', 'aipaste']) $(id).hidden = false;
+  const aiPrompt = () => 'This is a cabinet design in Plywise format (JSON, millimetres; plywise.xyz). ' +
+    'Change it as I ask below and give back the whole JSON only. Keep the format: cabinets are boxes side by side, ' +
+    'each with zones from the bottom up (drawer, doors, open), sizes in mm or "fill". Fill drawers graduate by the golden ratio. ' +
+    'Style options include preset (classic-euro, ply-inset, recessed-inset, milan-flush), grainMatch (across, waterfall, off), ' +
+    'rhythm (golden, even), frontFinish, carcassFinish, topFinish.\n\n' + JSON.stringify(window.__spec, null, 1) + '\n\nMy change: ';
+  $('aicopy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(aiPrompt()); $('aiNote').textContent = 'Copied. Paste it into any AI chat, add what you want changed, then paste its answer back here.'; }
+    catch { $('aitext').hidden = false; $('aitext').value = aiPrompt(); $('aiNote').textContent = 'Copy this into any AI chat.'; }
+  });
+  $('aipaste').addEventListener('click', () => { $('aitext').hidden = $('aiload').hidden = false; $('aitext').value = ''; $('aitext').focus(); });
+  $('aiload').addEventListener('click', () => {
+    const text = $('aitext').value;
+    try {
+      const spec = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+      const check = JSON.parse(Plywise.design(JSON.stringify(spec)));
+      if (check.error) { $('aiNote').textContent = `Plywise can't build that: ${check.error}`; return; }
+      const b = btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(spec)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      location.hash = b;   // the page reloads with the new design (and it's a link you can share)
+    } catch (e) { $('aiNote').textContent = `That isn't a Plywise design: ${e.message}`; }
+  });
+}
 window.__view = (pos, target) => { camera.position.set(...pos); controls.target.set(...target); controls.update(); };
 window.__setFinish = (key, id) => { choice[key] = id; $('f-' + key).value = id; applyFinishes(); };
 window.__ready = true;

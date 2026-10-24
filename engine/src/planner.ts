@@ -12,6 +12,10 @@
 //     widest; largest standard width that fits with 1/2" to spare each side; 60"+ gets two sinks
 //   - bookcase: fills the widest clear stretch wall to wall, as tall as the ceiling allows
 //   - console, dresser: largest standard width that fits, centred in the widest stretch
+//   - desk (home office, office): largest standard width that fits; file pedestals and a knee space at
+//     least 30" wide, pedestal : desk in the golden section; writing height 30"
+//   - coffee bar (café, kitchen, break room): a 36" counter filling the widest stretch wall to wall,
+//     bays of drawers and doors no wider than 36", mirrored about the middle
 //   - where a vanity or bookcase ends within 4" of a side wall, a scribe filler closes the gap (a
 //     bookcase drops its end panel there: the filler takes its place); a bookcase gets a scribe strip
 //     up to the ceiling when the gap above is 8" or less
@@ -29,8 +33,8 @@ const EDGE = 0.5 * IN;
 const HEIGHT = 20 * IN, DEPTH = 20 * IN;
 const T = 18; // carcass board (bb18): end panels add this each side
 
-export type Project = 'vanity' | 'bookcase' | 'console' | 'dresser' | 'island';
-export const PROJECTS: Project[] = ['vanity', 'bookcase', 'console', 'dresser', 'island'];
+export type Project = 'vanity' | 'bookcase' | 'console' | 'dresser' | 'island' | 'desk' | 'bar';
+export const PROJECTS: Project[] = ['vanity', 'bookcase', 'console', 'dresser', 'island', 'desk', 'bar'];
 
 export type ObstacleKind = 'door' | 'opening' | 'window' | 'toilet' | 'tub' | 'sink' | 'storage' | 'other';
 export interface Obstacle {
@@ -132,7 +136,8 @@ export function plan(input: PlanInput): Plan {
   const project = input.project ?? 'vanity';
   if (!PROJECTS.includes(project)) throw new Error(`Unknown project "${project}". Known: ${PROJECTS.join(', ')}`);
   return project === 'vanity' ? planVanity(input) : project === 'bookcase' ? planBookcase(input)
-    : project === 'island' ? planIsland(input) : planFurniture(input, project);
+    : project === 'island' ? planIsland(input) : project === 'desk' ? planDesk(input) : project === 'bar' ? planBar(input)
+    : planFurniture(input, project);
 }
 
 function noRoom(spans: [number, number][], what: string, need: number): never {
@@ -412,4 +417,136 @@ export function planIsland(input: PlanInput): Plan {
   };
   const x0 = span[0] + (span[1] - span[0] - width) / 2 + T;
   return { project: 'island', spec, x0, width, sinks: 0, span, spans, widthOptions, notes, standoff: COUNTER_DEPTH + AISLE, faceWall: true };
+}
+
+// ---- desk (home office, office) ----------------------------------------------------------------------
+// A built-in desk: drawer pedestals on a toe kick (a pencil drawer over a file drawer that takes hanging
+// letter files), a knee space at least 30" wide, end panels down to the floor carrying the top at the
+// ends, and a desk rail + wall cleat carrying it over the knee space. Writing height 30".
+
+const DESK_WIDTHS = [48, 54, 60, 66, 72, 84, 90].map((w) => w * IN);
+const DESK_TOP = 30 * IN, DESK_DEPTH = 22 * IN, KNEE_MIN = 30 * IN, PEDESTAL_MIN = 15 * IN;
+
+/** Pedestal and knee widths for a desk of this case width: one pedestal under 66", two above. */
+export function deskLayout(caseW: number, pedestalSide: 'left' | 'right' = 'right'): CabinetSpec[] {
+  const H = DESK_TOP - T - KICK;
+  const quarter = (v: number) => Math.round(v / (IN / 4)) * (IN / 4);
+  const drawers: Zone[] = [{ type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }];
+  const box = (id: string, w: number): CabinetSpec => ({ id, width: w, height: H, depth: DESK_DEPTH, zones: drawers });
+  const kneeSpace = (id: string, w: number): CabinetSpec => ({ id, width: w, height: H, depth: DESK_DEPTH, zones: [], knee: true });
+  if (caseW < 66 * IN - 2 * T) {
+    // pedestal : desk = the golden section
+    const p = Math.min(Math.max(quarter(caseW * GOLDEN_MINOR), PEDESTAL_MIN), caseW - KNEE_MIN);
+    return pedestalSide === 'left' ? [box('A', p), kneeSpace('B', caseW - p)] : [kneeSpace('A', caseW - p), box('B', p)];
+  }
+  // pedestal : knee = 1 : phi squared, so each pedestal is the golden section of its half
+  const p = Math.max(quarter(caseW / (2 + PHI * PHI)), PEDESTAL_MIN);
+  return [box('A', p), kneeSpace('B', caseW - 2 * p), box('C', p)];
+}
+
+export function planDesk(input: PlanInput): Plan {
+  const L = input.wallLength;
+  const spans = freeSpans(L, input.obstacles, DESK_TOP, false);
+  const fits = spans.filter(([a, b]) => b - a - 2 * EDGE >= DESK_WIDTHS[0]);
+  if (!fits.length) noRoom(spans, 'desk', DESK_WIDTHS[0] + 2 * EDGE);
+  const span = widest(fits);
+  const avail = span[1] - span[0] - 2 * EDGE;
+  const notes: string[] = [];
+  const widthOptions = DESK_WIDTHS.filter((w) => w <= avail + 0.01);
+  let width = widthOptions[widthOptions.length - 1];
+  if (input.width) {
+    width = Math.min(Math.max(input.width, DESK_WIDTHS[0]), avail);
+    if (input.width > avail + 0.01) notes.push(`${inches(input.width)} doesn't fit here; using ${inches(width)}.`);
+  }
+  width = capToSheet(width, notes);
+  const x0 = span[0] + (span[1] - span[0] - width) / 2 + T;
+  // one pedestal: it goes at the end nearer a side wall (the knee space opens to the room)
+  const side = span[0] <= 1 && span[1] < L - 1 ? 'left' : 'right';
+  const cabinets = deskLayout(width - 2 * T, side);
+  const peds = cabinets.filter((c) => !c.knee), kneeW = cabinets.find((c) => c.knee)!.width;
+  notes.unshift(`A ${inches(width)} desk: ${peds.length === 1 ? 'a file pedestal' : 'two file pedestals'} and a ${inches(kneeW)} knee space, writing height 30".`);
+  notes.push('The bottom drawers take hanging letter files; the top ones are for pens and paper.');
+  obstacleNotes(input, DESK_TOP, notes);
+  const spec: RunSpec = {
+    name: `${Math.round(width / IN)}" desk`,
+    units: 'mm',
+    style: { preset: 'classic-euro', grainMatch: 'across', ...input.style },
+    mounting: 'toe-kick',
+    elevation: 0,
+    kickHeight: KICK,
+    endPanels: 'both',
+    cabinets,
+    top: { material: 'bb18', overhangSides: 0, overhangFront: IN },
+  };
+  return { project: 'desk', spec, x0, width, sinks: 0, span, spans, widthOptions, notes };
+}
+
+// ---- coffee bar (café, kitchen, office break room) ---------------------------------------------------
+// A 36" counter on a toe kick, filling the widest clear stretch wall to wall (scribe fillers at the walls,
+// end panels at open ends), in bays no wider than 36": doors at the ends, drawer banks between, mirrored.
+
+const BAR_TOP = 36 * IN, BAR_DEPTH = 22.75 * IN, BAR_BAY = 36 * IN;
+
+/** Bays for a counter of this case width: doors at the ends, drawers between, mirrored about the middle. */
+export function barLayout(caseW: number): CabinetSpec[] {
+  const H = BAR_TOP - T - KICK;
+  const n = Math.max(1, Math.ceil(caseW / BAR_BAY - 0.001));
+  const w = caseW / n;
+  const drawers: Zone[] = [{ type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }, { type: 'drawer', size: 'fill' }];
+  const doors = (i: number): Zone[] => [{ type: 'doors', size: 'fill', ...(w >= 24 * IN ? { count: 2 } : { count: 1, hinge: i < n / 2 ? 'left' : 'right' }), shelves: 1 } as Zone];
+  return Array.from({ length: n }, (_, i): CabinetSpec => {
+    const fromEnd = Math.min(i, n - 1 - i);
+    const isDrawers = n === 1 ? w < 24 * IN : n === 2 ? i === 0 : fromEnd % 2 === 1;
+    return { id: String.fromCharCode(65 + i), width: w, height: H, depth: BAR_DEPTH, zones: isDrawers ? drawers : doors(i) };
+  });
+}
+
+export function planBar(input: PlanInput): Plan {
+  const L = input.wallLength;
+  const spans = freeSpans(L, input.obstacles, BAR_TOP, false);
+  const minW = 30 * IN;
+  const fits = spans.filter(([a, b]) => b - a - 2 * EDGE >= minW);
+  if (!fits.length) noRoom(spans, 'coffee bar', minW + 2 * EDGE);
+  const span = widest(fits);
+  const clear = span[1] - span[0];
+  const notes: string[] = [];
+  const widthOptions = [36, 48, 60, 72, 84].map((w) => w * IN).filter((w) => w < clear - 2 * EDGE);
+
+  // wall to wall when the top (over the fillers, cut long) still comes off one sheet
+  let width = Math.min(clear - 2 * EDGE, MAX_TOP - 2 * SCRIBE - 2 * EDGE);
+  if (input.width) {
+    width = Math.min(input.width, clear - 2 * EDGE);
+    if (input.width > clear - 2 * EDGE + 0.01) notes.push(`${inches(input.width)} doesn't fit here; using ${inches(width)}.`);
+  }
+  let x0 = span[0] + (clear - width) / 2;
+  let gaps = wallGaps(L, span, x0, x0 + width);
+  const reach = (gaps.left !== undefined ? gaps.left + SCRIBE : 0) + (gaps.right !== undefined ? gaps.right + SCRIBE : 0);
+  if (width + reach > MAX_TOP) {
+    // too long for one sheet: stop well clear of the walls, finished with end panels
+    width = Math.min(width, MAX_TOP, clear - 2 * (MAX_FILLER + IN));
+    x0 = span[0] + (clear - width) / 2;
+    gaps = {};
+    notes.push(`The top is cut from one 8' sheet, so the counter stops at ${inches(width)}; longer needs a joined or stone top.`);
+  }
+  const panelL = gaps.left === undefined, panelR = gaps.right === undefined;
+  const caseW = width - T * (Number(panelL) + Number(panelR));
+  const cabinets = barLayout(caseW);
+  const walls: RunSpec['walls'] = { ...(gaps.left !== undefined ? { left: gaps.left } : {}), ...(gaps.right !== undefined ? { right: gaps.right } : {}) };
+  notes.unshift(`A ${inches(width)} coffee bar at counter height (36"): ${cabinets.length} bay${cabinets.length > 1 ? 's' : ''}, drawers for cups and beans, doors for the machine supplies.`);
+  if (fillerNote(gaps)) notes.push(fillerNote(gaps));
+  notes.push('Plan two outlets above the counter: the espresso machine and the grinder each want their own.');
+  obstacleNotes(input, BAR_TOP, notes);
+  const spec: RunSpec = {
+    name: `${Math.round(width / IN)}" coffee bar`,
+    units: 'mm',
+    style: { preset: 'classic-euro', grainMatch: 'across', ...input.style },
+    mounting: 'toe-kick',
+    elevation: 0,
+    kickHeight: KICK,
+    endPanels: panelL && panelR ? 'both' : panelL ? 'left' : panelR ? 'right' : 'none',
+    cabinets,
+    top: { material: 'bb18', overhangSides: 0, overhangFront: IN },
+    ...(Object.keys(walls).length ? { walls } : {}),
+  };
+  return { project: 'bar', spec, x0: x0 + (panelL ? T : 0), width, sinks: 0, span, spans, widthOptions, notes };
 }

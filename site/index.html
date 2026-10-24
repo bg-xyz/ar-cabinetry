@@ -104,7 +104,7 @@
   .collection .plate:first-child { grid-row: span 2; }
   .collection .facts-row, .collection .wide { grid-column: 1 / -1; }
   .collection .wide img { aspect-ratio: 21 / 9; }
-  .collection .facts-row .facts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0 28px; border-top: 1px solid var(--rule); }
+  .collection .facts-row .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 28px; border-top: 1px solid var(--rule); }
   .collection .facts-row .facts li { grid-template-columns: 1fr; gap: 4px; }
   @media (max-width: 860px) { .collection .facts-row .facts { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 480px) { .collection .facts-row .facts { grid-template-columns: 1fr; } }
@@ -123,6 +123,14 @@
   @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
   @media (max-width: 480px) { .facts li { grid-template-columns: 1fr; gap: 2px; } }
   svg.sheet { width: 100%; height: auto; }
+
+  /* proportion */
+  svg.phi { width: 100%; height: auto; }
+  svg.phi .tk { stroke: var(--muted); stroke-width: 1; }
+  svg.phi .rt { font: 400 22px var(--serif); fill: var(--ink); }
+  svg.phi .rt.sm { font: 500 11px var(--sans); letter-spacing: .14em; text-transform: uppercase; fill: var(--muted); }
+  svg.phi .phi-big { font: italic 400 84px var(--serif); fill: var(--brass); }
+  .calm { font: italic 400 clamp(24px, 2.6vw, 34px)/1.25 var(--serif); margin: 34px 0 0; max-width: 24em; }
 
   /* styles */
   .cities { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--rule); }
@@ -189,6 +197,7 @@
     <div class="links">
       <a href="#how">How it works</a>
       <a href="#collection">Collection</a>
+      <a href="#proportion">Proportion</a>
       <a href="#grain">Craft</a>
       <a href="#makers">For makers</a>
       <a href="#open">Open source</a>
@@ -228,7 +237,7 @@
       <h2>From a bare wall to a cut list, <em>in minutes.</em></h2>
     </div>
     <div class="steps rise">
-      <div><div class="n">01</div><h3>Choose</h3><p>Tell it what you're building: a vanity, a built-in bookcase, a media console, a dresser.</p></div>
+      <div><div class="n">01</div><h3>Choose</h3><p>Tell it what you're building: a vanity, a bookcase, a dresser, a desk, a coffee bar, an island.</p></div>
       <div><div class="n">02</div><h3>Scan</h3><p>Walk the room with a LiDAR iPhone. Walls, doors, windows, ceiling height, the old sink: all measured.</p></div>
       <div><div class="n">03</div><h3>See it</h3><p>Tap a wall. It's planned for the clear space, then locked onto the wall in AR, in real wood.</p></div>
       <div><div class="n">04</div><h3>Have it cut</h3><p>A job package any 3-axis CNC shop can cut: layered DXF sheets, cut list, hardware and a quote.</p></div>
@@ -243,8 +252,8 @@
     <div class="head rise">
       <div class="label">The collection</div>
       <div>
-        <h2>Five pieces, <em>one system.</em></h2>
-        <p class="lead" style="margin-top:18px">Every piece is a plywood box on the 32&nbsp;mm system. The planner sizes it to your wall, picks the layout, and keeps the code clearances, so the only choices left are the nice ones: wood, style, grain.</p>
+        <h2>Seven pieces, <em>one system.</em></h2>
+        <p class="lead" style="margin-top:18px">Homes, offices and caf&eacute;s: every piece is a plywood box on the 32&nbsp;mm system. The planner sizes it to your wall, picks the layout, and keeps the code clearances, so the only choices left are the nice ones: wood, style, grain.</p>
       </div>
     </div>
     <div class="collection">
@@ -269,10 +278,44 @@
           <li><span>Vanity</span><span>24 to 84 in. Double sink from 60 in. Keeps 15 in from the toilet, wraps the trap with U-drawers.</span></li>
           <li><span>Bookcase</span><span>Fills the wall, bays no wider than 36 in, as tall as the ceiling lets you stand it up.</span></li>
           <li><span>Console</span><span>36 to 84 in on legs; doors at the ends, drawers between. Slides under a high window.</span></li>
-          <li><span>Dresser</span><span>30 to 72 in, banks of drawers with a shallow one on top.</span></li>
+          <li><span>Dresser</span><span>30 to 72 in, banks of four drawers graduated golden.</span></li>
+          <li><span>Desk</span><span>48 to 90 in. File pedestals, a knee space at least 30 in wide, writing height 30 in.</span></li>
+          <li><span>Coffee bar</span><span>Wall to wall at 36 in: drawers for cups and beans, doors for the supplies. Caf&eacute;s, kitchens, offices.</span></li>
           <li><span>Island</span><span>48 to 90 in, finished all round, a 12 in seating overhang, facing your counters.</span></li>
         </ul>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="proportion">
+  <div class="wrap split">
+    <figure class="rise" style="margin:0">
+      <svg class="phi" viewBox="0 0 700 430" role="img" aria-label="A walnut dresser with four drawers graduated by the golden ratio: each drawer is 1.174 times the one above it, and the bottom drawer is 1.618 times the top one">
+        <rect x="80" y="40" width="380" height="316.0" fill="#24180f"/><rect x="80" y="40" width="380" height="316.0" fill="none" stroke="var(--walnut)" stroke-width="6"/>
+        <rect x="86" y="50.0" width="368" height="55.7" fill="url(#walnut-grain)" stroke="var(--walnut)" stroke-width="1"/><rect x="86" y="109.7" width="368" height="65.4" fill="url(#walnut-grain)" stroke="var(--walnut)" stroke-width="1"/><rect x="86" y="179.1" width="368" height="76.8" fill="url(#walnut-grain)" stroke="var(--walnut)" stroke-width="1"/><rect x="86" y="259.9" width="368" height="90.1" fill="url(#walnut-grain)" stroke="var(--walnut)" stroke-width="1"/>
+        <rect x="208" y="63.0" width="124" height="4" rx="2" fill="#1c1915"/><rect x="208" y="122.7" width="124" height="4" rx="2" fill="#1c1915"/><rect x="208" y="192.1" width="124" height="4" rx="2" fill="#1c1915"/><rect x="208" y="272.9" width="124" height="4" rx="2" fill="#1c1915"/>
+        <polygon points="100,356.0 114,356.0 108,406.0 103,406.0" fill="var(--walnut)"/>
+        <polygon points="426,356.0 440,356.0 437,406.0 432,406.0" fill="var(--walnut)"/>
+        <line x1="0" x2="700" y1="407.0" y2="407.0" class="tk"/>
+        <line x1="478" x2="490" y1="50.0" y2="50.0" class="tk"/><line x1="484" x2="484" y1="53.0" y2="102.7" class="tk"/><text x="500" y="83.9" class="rt">1</text><line x1="478" x2="490" y1="109.7" y2="109.7" class="tk"/><line x1="484" x2="484" y1="112.7" y2="172.1" class="tk"/><text x="500" y="148.4" class="rt">1.174</text><line x1="478" x2="490" y1="179.1" y2="179.1" class="tk"/><line x1="484" x2="484" y1="182.1" y2="252.9" class="tk"/><text x="500" y="223.5" class="rt">1.378</text><line x1="478" x2="490" y1="259.9" y2="259.9" class="tk"/><line x1="484" x2="484" y1="262.9" y2="347.0" class="tk"/><text x="500" y="310.9" class="rt">1.618</text><line x1="478" x2="490" y1="350.0" y2="350.0" class="tk"/>
+        <text x="574" y="128" class="phi-big">&#966;</text>
+        <text x="560" y="168" class="rt sm">each step</text><text x="560" y="188" class="rt sm">&#215; 1.174</text>
+        <text x="560" y="226" class="rt sm">bottom</text><text x="560" y="246" class="rt sm">= 1.618 &#215; top</text>
+      </svg>
+    </figure>
+    <div class="rise">
+      <div class="label" style="margin-bottom:18px">Proportion</div>
+      <h2>Beauty in <em>the math.</em></h2>
+      <p class="lead" style="margin-top:20px">Getting the proportions right used to be the expensive part. Designers and architects spent the hours on the ratios, and charged a fee or a share of the build for it. Everyone else settled for flat-pack or showroom boxes that only hinted at it. Plywise does the math for every wall it plans.</p>
+      <ul class="facts">
+        <li><span>Golden ratio</span><span>Drawers graduate by &#966; = 1.618. The bottom drawer is 1.618 times the top, in equal steps, however many drawers there are.</span></li>
+        <li><span>One line</span><span>Top drawers line up across a run, so pulls and reveals read as one unbroken line.</span></li>
+        <li><span>Golden section</span><span>A drawer bank beside a sink, a desk pedestal, the closed base of a bookcase: each takes 0.382 of the whole.</span></li>
+        <li><span>Scaled pulls</span><span>Every pull is about a third of its drawer's width. A wide drawer never gets a lost little pull.</span></li>
+        <li><span>Checked</span><span>Every design passes eight proportion checks before you see it: no near-misses, no squat doors, runs that mirror.</span></li>
+      </ul>
+      <p class="calm">When nothing is off, the eye settles, and you stop noticing the furniture and start noticing the room.</p>
     </div>
   </div>
 </section>

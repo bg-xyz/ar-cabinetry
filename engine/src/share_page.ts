@@ -24,6 +24,7 @@ const loader = `(() => {
       spec = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), (c) => c.charCodeAt(0))));
     }
   } catch (e) { console.warn('Plywise: could not read the design in this link', e); }
+  window.__spec = spec;   // "Edit with any AI" copies it
   const m = JSON.parse(Plywise.design(JSON.stringify(spec)));
   if (m.error) throw new Error(m.error);
   const keys = new Set(Object.values(m.finishes).flatMap((f) => [f.texture, f.edge]).filter(Boolean));

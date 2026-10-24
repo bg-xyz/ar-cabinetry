@@ -231,6 +231,7 @@ export interface CabinetSpec {
   height: number;
   depth: number;
   zones: Zone[];          // bottom to top
+  knee?: boolean;         // knee space (desks): no box, the top spans it on a desk rail and a wall cleat
 }
 
 export interface SinkSpec {

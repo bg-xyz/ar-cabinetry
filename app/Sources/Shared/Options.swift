@@ -16,6 +16,8 @@ enum Builds {
         .init(id: "bookcase", name: "Built-in bookcase", noun: "bookcase", room: "Living room, office", icon: "books.vertical.fill", ready: true),
         .init(id: "console", name: "Media console", noun: "console", room: "Living room", icon: "tv.fill", ready: true),
         .init(id: "dresser", name: "Dresser", noun: "dresser", room: "Bedroom", icon: "cabinet.fill", ready: true),
+        .init(id: "desk", name: "Built-in desk", noun: "desk", room: "Office, study", icon: "desktopcomputer", ready: true),
+        .init(id: "bar", name: "Coffee bar", noun: "coffee bar", room: "Café, kitchen, office", icon: "cup.and.saucer.fill", ready: true),
         .init(id: "closet", name: "Closet system", noun: "closet", room: "Bedroom", icon: "hanger", ready: false),
         .init(id: "kitchen", name: "Kitchen", noun: "kitchen", room: "Kitchen", icon: "refrigerator.fill", ready: false),
         .init(id: "island", name: "Kitchen island", noun: "island", room: "Kitchen", icon: "square.split.bottomrightquarter.fill", ready: true),
