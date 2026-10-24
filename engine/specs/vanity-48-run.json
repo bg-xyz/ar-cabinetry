@@ -1,0 +1,15 @@
+{
+  "name": "Vanity 48\": sink cabinet + 3-drawer bank",
+  "units": "in",
+  "style": { "preset": "classic-euro" },
+  "mounting": "wall-hung",
+  "elevation": 10.25,
+  "cabinets": [
+    { "id": "A", "width": 30, "height": 20, "depth": 20,
+      "zones": [ { "type": "doors", "size": "fill", "count": 2 } ] },
+    { "id": "B", "width": 18, "height": 20, "depth": 20,
+      "zones": [ { "type": "drawer", "size": "fill" }, { "type": "drawer", "size": "fill" }, { "type": "drawer", "size": 5 } ] }
+  ],
+  "top": { "material": "bb18", "overhangSides": 0, "overhangFront": 0.5 },
+  "sinks": [ { "cabinet": "A", "sink": "vessel-rect-20x14", "faucet": "vessel-single-hole" } ]
+}

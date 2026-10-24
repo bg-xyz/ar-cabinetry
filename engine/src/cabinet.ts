@@ -1,0 +1,339 @@
+// One cabinet = the box primitive + a front layout + hardware rules.
+// Built in the cabinet's own frame (origin back-left-bottom of the carcass);
+// run.ts moves it into place along the wall.
+
+import { lookup } from './catalog.ts';
+import { PHI, graduate, pullForFront, splitZones } from './proportion.ts';
+import type {
+  CabinetSpec, Catalog, Fixture, HardwareLine, Part, Style, Vec3, WorldOp, Zone,
+} from './types.ts';
+
+export interface CabinetOptions {
+  // sink drain + trap: a vertical pipe at x that runs back to the wall; drawers wrap around it
+  drain?: { x: number; clearZ: number; width: number };
+  backCutouts?: WorldOp[]; // added to the back panel (plumbing)
+  endGap?: { left: boolean; right: boolean }; // an applied end panel sits beside this side: use the full gap
+}
+
+export interface CabinetResult {
+  parts: Part[];
+  hardware: HardwareLine[];
+  fixtures: Fixture[];
+  warnings: string[];
+  frontDepth: number;      // how far fronts stand proud of the carcass (overlay)
+}
+
+
+const floorTo = (v: number, step: number) => Math.floor(v / step) * step;
+
+export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts: CabinetOptions = {}): CabinetResult {
+  const W = spec.width, H = spec.height, D = spec.depth;
+  const mat = (id: string) => lookup(cat.materials, id, 'material');
+  const t = mat(style.carcass).thickness;
+  const bt = mat(style.back).thickness;
+  const ft = mat(style.fronts).thickness;
+  const dd = style.dadoDepth, gd = style.grooveDepth, sw = style.stretcherWidth;
+  const FIT = style.dadoFit, GFIT = style.grooveFit, DFIT = style.depthFit;
+  const bs = t; // back sits forward of the rear edge by one board: room for the hanging rail
+  const inset = style.mount === 'inset';
+  const s = inset ? style.insetSetback : 0;
+  const hs = inset ? s + ft : 0;          // carcass front edge -> back face of the fronts
+  const frontBackZ = inset ? D - s - ft : D;
+  const id = (name: string) => `${spec.id}-${name}`;
+
+  const parts: Part[] = [];
+  const hardware: HardwareLine[] = [];
+  const fixtures: Fixture[] = [];
+  const warnings: string[] = [];
+  const add = (p: Omit<Part, 'cabinet'>) => { const full = { ...p, cabinet: spec.id }; parts.push(full); return full; };
+  const hw = (item: string, qty: number, buy?: string | null) => hardware.push({ item, qty, buy });
+
+  if (W < 150 || H < 150 || D < 200) throw new Error(`${spec.id}: cabinet ${W}x${H}x${D} is too small`);
+
+  // ---- carcass ------------------------------------------------------------
+  const sideOps = (x: number): WorldOp[] => [
+    { kind: 'pocket', from: [x, 0, 0], to: [x, t + FIT, D], depth: dd, note: 'bottom rabbet' },
+    { kind: 'pocket', from: [x, H - t - FIT, 0], to: [x, H, D], depth: dd, note: 'top rabbet (stretchers)' },
+    { kind: 'pocket', from: [x, t - 1, bs], to: [x, H - t + 1, bs + bt + GFIT], depth: gd, note: 'back groove' },
+  ];
+  const sideL = add({ id: id('side-L'), name: 'Left side', role: 'side', material: style.carcass,
+    box: { min: [0, 0, 0], size: [t, H, D] }, faceA: '+x', grain: 1, exposed: true, ops: sideOps(t) });
+  const sideR = add({ id: id('side-R'), name: 'Right side', role: 'side', material: style.carcass,
+    box: { min: [W - t, 0, 0], size: [t, H, D] }, faceA: '-x', grain: 1, exposed: true, ops: sideOps(W - t) });
+
+  const between = W - 2 * t + 2 * dd - 2 * DFIT; // panels captured in the side rabbets, short of the bottom
+  const bx = t - dd + DFIT;
+  add({ id: id('bottom'), name: 'Bottom', role: 'bottom', material: style.carcass,
+    box: { min: [bx, 0, 0], size: [between, t, D] }, faceA: '+y', grain: 0, exposed: true,
+    ops: [{ kind: 'pocket', from: [bx, t, bs], to: [bx + between, t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
+  if (spec.zones[spec.zones.length - 1]?.type === 'open') {
+    // open shelving at the top: you see up into it, so a full top panel instead of stretchers
+    add({ id: id('top-panel'), name: 'Top panel', role: 'stretcher', material: style.carcass,
+      box: { min: [bx, H - t, 0], size: [between, t, D] }, faceA: '-y', grain: 0, exposed: true,
+      ops: [{ kind: 'pocket', from: [bx, H - t, bs], to: [bx + between, H - t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
+  } else {
+    add({ id: id('stretcher-F'), name: 'Front stretcher', role: 'stretcher', material: style.carcass,
+      box: { min: [bx, H - t, D - sw], size: [between, t, sw] }, faceA: '+y', grain: 0, exposed: inset, ops: [] }); // inset: its edge shows above the fronts
+    add({ id: id('stretcher-R'), name: 'Rear stretcher', role: 'stretcher', material: style.carcass,
+      box: { min: [bx, H - t, 0], size: [between, t, sw] }, faceA: '-y', grain: 0, exposed: false,
+      ops: [{ kind: 'pocket', from: [bx, H - t, bs], to: [bx + between, H - t, bs + bt + GFIT], depth: gd, note: 'back groove' }] });
+  }
+  add({ id: id('rail'), name: 'Hanging rail', role: 'rail', material: style.carcass,
+    box: { min: [t, H - t - 100, 0], size: [W - 2 * t, 100, bs] }, faceA: '+z', grain: 0, exposed: false, ops: [] });
+  const backW = W - 2 * t + 2 * gd - 1, backH = H - 2 * t + 2 * gd - 1;
+  add({ id: id('back'), name: 'Back', role: 'back', material: style.back,
+    box: { min: [t - gd + 0.5, t - gd + 0.5, bs], size: [backW, backH, bt] }, faceA: '+z', grain: 1,
+    exposed: spec.zones.some((z) => z.type === 'open'), // seen through open shelving
+    ops: opts.backCutouts ?? [] });
+
+  // ---- front layout ---------------------------------------------------------
+  const region = inset
+    ? { x0: t + style.gap, x1: W - t - style.gap, y0: t + style.gap, y1: H - t - style.gap }
+    : { x0: opts.endGap?.left ? style.gap : style.endReveal, x1: W - (opts.endGap?.right ? style.gap : style.endReveal),
+        y0: style.bottomReveal, y1: H - style.topReveal };
+  const heights = splitHeights(spec.zones, region.y1 - region.y0 - style.gap * (spec.zones.length - 1), style.rhythm, spec.id, warnings);
+
+  let y = region.y0;
+  const zoneSpans = spec.zones.map((zone, i) => {
+    const span = { zone, y0: y, y1: y + heights[i] };
+    y += heights[i] + style.gap;
+    return span;
+  });
+
+  // Fixed shelves: where open shelving meets fronts, a shelf in a dado closes the cabinet off.
+  // fixedTop[i] is the top of the shelf between zone i and zone i+1.
+  const fixedTop = zoneSpans.map((span, i): number | undefined => {
+    const next = zoneSpans[i + 1];
+    if (!next || (span.zone.type === 'open') === (next.zone.type === 'open')) return undefined;
+    if (span.zone.type !== 'open') return inset ? span.y1 + style.gap + t : span.y1 + style.topReveal;
+    return inset ? next.y0 - style.gap : next.y0 - style.bottomReveal + t;
+  });
+  fixedTop.forEach((top, i) => {
+    if (top === undefined) return;
+    const z0 = bs + bt + GFIT;
+    add({ id: id(`fixed-shelf-${i + 1}`), name: 'Fixed shelf', role: 'shelf', material: style.carcass,
+      box: { min: [bx, top - t, z0], size: [between, t, D - z0] }, faceA: '+y', grain: 0, exposed: true, ops: [] });
+    for (const [side, sx] of [[sideL, t], [sideR, W - t]] as const)
+      side.ops.push({ kind: 'pocket', from: [sx, top - t - FIT, bs + bt], to: [sx, top, D], depth: dd, note: 'fixed shelf dado' });
+  });
+
+  const hinge = lookup(cat.hinges, style.hinge, 'hinge');
+  const basePull = lookup(cat.pulls, style.pull, 'pull');
+  const pull = basePull;
+  if (hinge.mount !== style.mount && spec.zones.some((z) => z.type === 'doors'))
+    warnings.push(`${spec.id}: hinge "${style.hinge}" is for ${hinge.mount} doors but the style is ${style.mount}`);
+
+  const gripOps = (x0: number, x1: number, y1: number, pullX: number, pull = basePull): WorldOp[] => {
+    if (style.grip === 'groove')
+      return [{ kind: 'pocket', from: [x0, y1 - 20, frontBackZ], to: [x1, y1, frontBackZ], depth: ft - 6, note: 'finger groove' }];
+    if (style.grip === 'push' || !pull.holes.length) return [];
+    const py = y1 - pull.fromTopEdge;
+    const [sx, sy, sz] = pull.size ?? [pull.holes[pull.holes.length - 1] - pull.holes[0] + 30, 12, 30];
+    fixtures.push({ kind: 'pull', shape: 'box', name: pull.name, box: { min: [pullX - sx / 2, py - sy / 2, frontBackZ + ft], size: [sx, sy, sz] } });
+    return pull.holes.flatMap((o): WorldOp[] => {
+      const at: Vec3 = [pullX + o, py, frontBackZ];
+      const hole: WorldOp = { kind: 'hole', at, dia: pull.holeDia, depth: pull.holeDepth ?? 0, thru: pull.thru, note: 'pull' };
+      // through-bolted pulls: counterbore the screw head flush into the back of the front
+      return pull.thru ? [hole, { kind: 'hole', at, dia: 11, depth: 3, note: 'pull screw counterbore' }] : [hole];
+    });
+  };
+  const gripHardware = (n: number, p = basePull) => {
+    if (style.grip === 'pull' && p.holes.length) hw(p.name, n, p.buy);
+    if (style.grip === 'push') hw('Blum TIP-ON push-to-open (pick door/drawer version)', n);
+  };
+
+  zoneSpans.forEach(({ zone, y0, y1 }, zi) => {
+    const fz: Vec3 = [0, y0, frontBackZ];
+    if (zone.type === 'open') {
+      if (zone.shelves) addShelves(zone.shelves, y0, y1, zi, y0, (style.rhythm ?? 'golden') === 'golden');
+      return;
+    }
+    if (zone.type === 'doors') {
+      const xm = (region.x0 + region.x1) / 2;
+      const doors = zone.count === 2
+        ? [{ x0: region.x0, x1: xm - style.gap / 2, side: 'left' as const }, { x0: xm + style.gap / 2, x1: region.x1, side: 'right' as const }]
+        : [{ x0: region.x0, x1: region.x1, side: zone.hinge ?? 'left' }];
+      for (const [di, d] of doors.entries()) {
+        const dh = y1 - y0;
+        const hingeYs = dh > 1000 ? [y0 + 100, (y0 + y1) / 2, y1 - 100] : dh < 300 ? [y0 + 70, y1 - 70] : [y0 + 100, y1 - 100];
+        const cupX = d.side === 'left' ? d.x0 + hinge.cupEdgeDistance + hinge.cupDia / 2 : d.x1 - hinge.cupEdgeDistance - hinge.cupDia / 2;
+        const dowelX = cupX + (d.side === 'left' ? hinge.dowelOffset : -hinge.dowelOffset);
+        const ops: WorldOp[] = [];
+        for (const hy of hingeYs) {
+          ops.push({ kind: 'hole', at: [cupX, hy, frontBackZ], dia: hinge.cupDia, depth: hinge.cupDepth, note: 'hinge cup' });
+          for (const dy of [-hinge.dowelPitch / 2, hinge.dowelPitch / 2])
+            ops.push({ kind: 'hole', at: [dowelX, hy + dy, frontBackZ], dia: hinge.dowelDia, depth: hinge.dowelDepth, note: 'hinge dowel' });
+          const side = d.side === 'left' ? sideL : sideR;
+          const sx = d.side === 'left' ? t : W - t;
+          const pz = D - hinge.plate.setbackFromFront - (inset ? s : 0);
+          for (const dy of [-hinge.plate.holeSpacing / 2, hinge.plate.holeSpacing / 2])
+            side.ops.push({ kind: 'hole', at: [sx, hy + dy, pz], dia: hinge.plate.holeDia, depth: hinge.plate.holeDepth, note: 'hinge plate' });
+        }
+        const pullX = d.side === 'left' ? d.x1 - (pull.fromOpeningEdge ?? 100) : d.x0 + (pull.fromOpeningEdge ?? 100);
+        ops.push(...gripOps(d.x0, d.x1, y1, pullX));
+        add({ id: id(`door-${zi + 1}${doors.length > 1 ? 'LR'[di] : ''}`), name: `Door (${d.side} hinge)`, role: 'door',
+          material: style.fronts, box: { min: [d.x0, fz[1], fz[2]], size: [d.x1 - d.x0, dh, ft] },
+          faceA: '-z', grain: style.grainMatch === 'across' ? 0 : 1, exposed: true, ops });
+        hw(hinge.name.split(' + ')[0], hingeYs.length);
+        hw(hinge.plate.name, hingeYs.length);
+        gripHardware(1);
+      }
+      if (zone.shelves) addShelves(zone.shelves, y0, y1, zi, y0 + (y1 - y0 < 300 ? 70 : 100) - hinge.plate.holeSpacing / 2);
+      return;
+    }
+
+    // drawer: front + box + runners
+    const dPull = pullForFront(cat.pulls, basePull, region.x1 - region.x0, style.pullSizing);
+    const ops = gripOps(region.x0, region.x1, y1, (region.x0 + region.x1) / 2, dPull);
+    add({ id: id(`drawer-${zi + 1}-front`), name: 'Drawer front', role: 'drawerFront', material: style.fronts,
+      box: { min: [region.x0, y0, frontBackZ], size: [region.x1 - region.x0, y1 - y0, ft] },
+      faceA: '-z', grain: style.grainMatch === 'waterfall' ? 1 : 0, exposed: true, ops });
+    gripHardware(1, dPull);
+
+    const above = zoneSpans[zi + 1];
+    const below = zi > 0 ? fixedTop[zi - 1] : undefined;
+    const runnerY = below ?? Math.max(t, inset ? y0 - style.gap : y0);
+    const ceiling = fixedTop[zi] !== undefined ? fixedTop[zi]! - t
+      : above ? (above.zone.type === 'drawer' ? Math.max(t, inset ? above.y0 - style.gap : above.y0) : above.y0) : H - t;
+    addDrawerBox({ zi, runnerY, ceiling });
+  });
+
+  // Adjustable shelves: two columns of 5mm pin holes per side on the 32mm grid (lined up
+  // with the hinge plate holes so they never collide), shelves notched around a sink drain.
+  // Open shelving graduates gently (golden rhythm): the tallest space at the bottom for big books, each one
+  // above it smaller by one ratio, bottom = sqrt(phi) x top. Shelves snap to the 32mm pin rows.
+  function addShelves(n: number, zy0: number, zy1: number, zi: number, gridOrigin: number, graduated = false) {
+    const lo = Math.max(t, zy0) + 60, hi = Math.min(H - t, zy1) - 60;
+    if (hi - lo < 64) { warnings.push(`${spec.id}: no room for shelves in zone ${zi + 1}`); return; }
+    const rows: number[] = [];
+    for (let y = gridOrigin + Math.ceil((lo - gridOrigin) / 32) * 32; y <= hi; y += 32) rows.push(y);
+    const cols = [D - hs - 37, bs + bt + 37];
+    for (const [side, sx] of [[sideL, t], [sideR, W - t]] as const)
+      for (const z of cols) for (const y of rows) {
+        const clash = side.ops.some((o) => o.kind === 'hole' && Math.abs(o.at[1] - y) < 8 && Math.abs(o.at[2] - z) < 8);
+        if (!clash) side.ops.push({ kind: 'hole', at: [sx, y, z], dia: 5, depth: 10, note: 'shelf pin' });
+      }
+    const z0 = bs + bt + 2, z1 = D - hs - 20;
+    const spaces = graduated ? graduate(n + 1, hi - lo, 0, Math.sqrt(PHI)) : Array.from({ length: n + 1 }, () => (hi - lo) / (n + 1));
+    for (let k = 1; k <= n; k++) {
+      const target = lo + spaces.slice(0, k).reduce((a, b) => a + b, 0);
+      const row = rows.reduce((a, b) => (Math.abs(b - target) < Math.abs(a - target) ? b : a));
+      const sy = row + 4; // shelf rests on the pins
+      const d = opts.drain;
+      if (d && d.clearZ + 60 > z1) { warnings.push(`${spec.id}: shelf ${k} would hit the sink drain; left out`); continue; }
+      add({ id: id(`shelf-${zi + 1}-${k}`), name: d ? 'Shelf (notched for drain)' : 'Adjustable shelf', role: 'shelf', material: style.carcass,
+        box: { min: [t + 1, sy, z0], size: [W - 2 * t - 2, t, z1 - z0] }, faceA: '+y', grain: 0, exposed: true,
+        ops: d ? [{ kind: 'cutRect', from: [d.x - d.width / 2, sy + t, z0], to: [d.x + d.width / 2, sy + t, d.clearZ], note: 'drain notch' }] : [] });
+      hw('Shelf pins, 5mm', 4);
+    }
+  }
+
+  function addDrawerBox({ zi, runnerY, ceiling }: { zi: number; runnerY: number; ceiling: number }) {
+    const r = lookup(cat.runners, style.runner, 'runner');
+    const ds = mat(style.drawerBox).thickness;
+    const bb = mat(style.drawerBottom).thickness;
+    if (ds > r.maxSideThickness) warnings.push(`${spec.id}: drawer sides ${ds}mm are thicker than ${r.name} allows (${r.maxSideThickness}mm)`);
+
+    const runnerFront = D - hs - r.frontSetback;
+    const backLimit = bs + bt + 5;
+    const len = [...r.lengths].reverse().find((l) => runnerFront - l >= backLimit);
+    if (!len) {
+      warnings.push(`${spec.id}: drawer ${zi + 1} has no room for a runner (needs ${r.lengths[0]}mm, has ${Math.round(runnerFront - backLimit)}mm). Cabinet is too shallow.`);
+      return;
+    }
+    const bh = floorTo(ceiling - runnerY - r.topClearance, 5);
+    if (bh < 60) { warnings.push(`${spec.id}: drawer ${zi + 1} box would be only ${bh}mm tall; skipped`); return; }
+
+    const LW = W - 2 * t;
+    const inner = LW - r.insideWidthDeduction;
+    const x0 = t + (LW - inner - 2 * ds) / 2, x1 = x0 + inner + 2 * ds;
+    const L = len - r.lengthDeduction;
+    const zf = runnerFront, zb = zf - L;
+    const y0 = runnerY, y1 = runnerY + bh;
+    const rec = r.bottomRecess;
+    const rd = ds / 2;                         // rabbet depth for the box front/back
+    const df = ds;                             // box front/back use the side material
+    const fb = mat(style.drawerBox).thickness;
+    const p = `drawer-${zi + 1}`;
+    const grooveY: [number, number] = [y0 + rec, y0 + rec + bb + GFIT];
+
+    const boxSide = (x: number, face: '+x' | '-x', name: string) => add({
+      id: id(`${p}-side-${name}`), name: `Drawer side ${name}`, role: 'drawerSide', material: style.drawerBox,
+      box: { min: [face === '+x' ? x0 : x1 - ds, y0, zb], size: [ds, bh, L] }, faceA: face, grain: 2, exposed: false,
+      ops: [
+        { kind: 'pocket', from: [x, y0, zf - df - FIT], to: [x, y1, zf], depth: rd, note: 'rabbet for box front' },
+        { kind: 'pocket', from: [x, y0, zb], to: [x, y1, zb + df + FIT], depth: rd, note: 'rabbet for box back' },
+        { kind: 'pocket', from: [x, grooveY[0], zb], to: [x, grooveY[1], zf], depth: gd, note: 'bottom groove' },
+      ],
+    });
+    boxSide(x0 + ds, '+x', 'L');
+    boxSide(x1 - ds, '-x', 'R');
+
+    const midX0 = x0 + ds - rd + DFIT, midW = x1 - x0 - 2 * ds + 2 * rd - 2 * DFIT;
+    add({ id: id(`${p}-box-front`), name: 'Drawer box front', role: 'drawerBoxFront', material: style.drawerBox,
+      box: { min: [midX0, y0, zf - df], size: [midW, bh, df] }, faceA: '-z', grain: 0, exposed: false,
+      ops: [{ kind: 'pocket', from: [midX0, grooveY[0], zf - df], to: [midX0 + midW, grooveY[1], zf - df], depth: gd, note: 'bottom groove' }] });
+    const backY0 = y0 + rec + bb;
+    const backH = y1 - backY0;
+    const hook = (hx: number): WorldOp => ({
+      kind: 'hole', at: [hx, backY0 + r.rearHook.aboveBottomPanel, zb], dia: r.rearHook.dia, depth: r.rearHook.depth, note: 'runner rear hook' });
+
+    // U-drawer: if the sink drain runs through this drawer, notch the back around it.
+    // Two short backs, two notch walls and a cross piece, all sitting on a notched bottom.
+    const d = opts.drain;
+    const notch = d && zb < d.clearZ ? { x0: d.x - d.width / 2, x1: d.x + d.width / 2, z: d.clearZ } : null;
+    if (notch) {
+      const roomL = notch.x0 - df - midX0, roomR = midX0 + midW - (notch.x1 + df);
+      if (roomL < 50 || roomR < 50 || notch.z + df > zf - df - 60) {
+        warnings.push(`${spec.id}: drawer ${zi + 1} can't wrap the sink drain (cabinet too narrow or drain too far forward); use doors here`);
+        return;
+      }
+      add({ id: id(`${p}-box-back-L`), name: 'Drawer box back (left of notch)', role: 'drawerBack', material: style.drawerBox,
+        box: { min: [midX0, backY0, zb], size: [roomL, backH, df] }, faceA: '-z', grain: 0, exposed: false, ops: [hook(x0 + r.rearHook.fromSide)] });
+      add({ id: id(`${p}-box-back-R`), name: 'Drawer box back (right of notch)', role: 'drawerBack', material: style.drawerBox,
+        box: { min: [notch.x1 + df, backY0, zb], size: [roomR, backH, df] }, faceA: '-z', grain: 0, exposed: false, ops: [hook(x1 - r.rearHook.fromSide)] });
+      for (const [nm, nx] of [['L', notch.x0 - df], ['R', notch.x1]] as const)
+        add({ id: id(`${p}-notch-wall-${nm}`), name: `Drawer notch wall ${nm}`, role: 'drawerBack', material: style.drawerBox,
+          box: { min: [nx, backY0, zb], size: [df, backH, notch.z - zb] }, faceA: '+x', grain: 2, exposed: false, ops: [] });
+      add({ id: id(`${p}-notch-front`), name: 'Drawer notch front', role: 'drawerBack', material: style.drawerBox,
+        box: { min: [notch.x0 - df, backY0, notch.z], size: [notch.x1 - notch.x0 + 2 * df, backH, df] }, faceA: '-z', grain: 0, exposed: false, ops: [] });
+      hw('U-drawer: glue + 1-1/4" screws for notch walls (pre-drill)', 1);
+    } else {
+      add({ id: id(`${p}-box-back`), name: 'Drawer box back', role: 'drawerBack', material: style.drawerBox,
+        box: { min: [midX0, backY0, zb], size: [midW, backH, df] }, faceA: '-z', grain: 0, exposed: false,
+        ops: [hook(x0 + r.rearHook.fromSide), hook(x1 - r.rearHook.fromSide)] });
+    }
+    const botY = y0 + rec + bb;
+    add({ id: id(`${p}-bottom`), name: notch ? 'Drawer bottom (notched)' : 'Drawer bottom', role: 'drawerBottom', material: style.drawerBottom,
+      box: { min: [x0 + ds - gd + 0.5, y0 + rec, zb], size: [x1 - x0 - 2 * ds + 2 * gd - 1, bb, zf - df + gd - 0.5 - zb] },
+      faceA: '+y', grain: style.grainMatch === 'off' ? null : 0, exposed: false, // matched: grain runs across the run
+      ops: notch ? [{ kind: 'cutRect', from: [notch.x0, botY, zb], to: [notch.x1, botY, notch.z], note: 'drain notch' }] : [] });
+
+    // runner screw holes on the 32mm grid, front hole on the 37mm line
+    const hy = runnerY + r.holeAboveRunnerBottom;
+    const first = D - hs - r.firstHoleFromFront;
+    const steps = Math.floor((len - r.firstHoleFromFront - 20) / 32);
+    const holeZ = [first, first - 32 * steps];
+    if (len >= 400) holeZ.splice(1, 0, first - 32 * Math.round(steps / 2));
+    for (const [side, sx] of [[sideL, t], [sideR, W - t]] as const)
+      for (const z of holeZ)
+        side.ops.push({ kind: 'hole', at: [sx, hy, z], dia: r.holeDia, depth: r.holeDepth, note: 'runner screw' });
+    hw(`${r.name}, ${Math.round(len / 25.4)}" (${len}mm) pair + locking devices`, 1);
+  }
+
+  return { parts, hardware, fixtures, warnings, frontDepth: inset ? 0 : ft };
+}
+
+function splitHeights(zones: Zone[], avail: number, rhythm: Style['rhythm'], cab: string, warnings: string[]): number[] {
+  const fixed = zones.reduce((a, z) => a + (typeof z.size === 'number' ? z.size : 0), 0);
+  const fills = zones.filter((z) => z.size === 'fill').length;
+  if (fills) {
+    if ((avail - fixed) / fills < 80) throw new Error(`${cab}: fixed front sizes leave only ${Math.round((avail - fixed) / fills)}mm for the 'fill' fronts`);
+    return splitZones(zones, avail, rhythm);
+  }
+  if (Math.abs(fixed - avail) > 0.5) {
+    warnings.push(`${cab}: front sizes add up to ${fixed.toFixed(1)}mm but ${avail.toFixed(1)}mm is available; scaled to fit`);
+    return zones.map((z) => (z.size as number) * (avail / fixed));
+  }
+  return zones.map((z) => z.size as number);
+}

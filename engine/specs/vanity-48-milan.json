@@ -1,0 +1,16 @@
+{
+  "name": "Vanity 48\": Flush, toe kick, white oak, push-to-open",
+  "units": "in",
+  "style": { "preset": "milan-flush", "frontFinish": "white-oak", "topFinish": "white-oak" },
+  "mounting": "toe-kick",
+  "elevation": 0,
+  "endPanels": "both",
+  "cabinets": [
+    { "id": "A", "width": 30, "height": 30, "depth": 20,
+      "zones": [ { "type": "doors", "size": "fill", "count": 2, "shelves": 1 } ] },
+    { "id": "B", "width": 18, "height": 30, "depth": 20,
+      "zones": [ { "type": "drawer", "size": "fill" }, { "type": "drawer", "size": "fill" }, { "type": "drawer", "size": 6 } ] }
+  ],
+  "top": { "material": "bb18", "overhangSides": 0, "overhangFront": 0.5 },
+  "sinks": [ { "cabinet": "A", "sink": "vessel-rect-20x14", "faucet": "vessel-single-hole" } ]
+}

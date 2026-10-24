@@ -1,0 +1,67 @@
+{
+  "name": "60\" dresser, recessed inset walnut",
+  "units": "mm",
+  "style": {
+    "preset": "recessed-inset",
+    "frontFinish": "walnut",
+    "carcassFinish": "walnut",
+    "topFinish": "walnut"
+  },
+  "mounting": "legs",
+  "elevation": 127,
+  "cabinets": [
+    {
+      "id": "A",
+      "width": 762,
+      "height": 685.8,
+      "depth": 482.59999999999997,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "width": 762,
+      "height": 685.8,
+      "depth": 482.59999999999997,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        }
+      ]
+    }
+  ],
+  "top": {
+    "material": "bb18",
+    "overhangSides": 0,
+    "overhangFront": 0
+  }
+}

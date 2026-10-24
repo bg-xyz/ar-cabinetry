@@ -1,0 +1,20 @@
+{
+  "name": "ar-cabinetry-engine",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "description": "Parametric Euro cabinet engine: run spec -> parts -> AR model + CNC job package",
+  "scripts": {
+    "samples": "node src/samples.ts",
+    "app-assets": "node src/app_assets.ts",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc",
+    "bundle": "esbuild src/browser.ts --bundle --format=iife --target=es2020 --minify --legal-comments=none --outfile=dist/plywise-engine.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.9.3"
+  }
+}

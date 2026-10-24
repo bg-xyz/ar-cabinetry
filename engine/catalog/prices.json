@@ -1,0 +1,33 @@
+{
+  "note": "Rough US retail estimates (Oct 2026) for quoting only. Update with your supplier's prices.",
+  "materials": {
+    "bb18": { "sheet": 115, "longSheet": 185 },
+    "bb15": { "sheet": 95,  "longSheet": 160 },
+    "bb12": { "sheet": 80,  "longSheet": 135 },
+    "bb6":  { "sheet": 45,  "longSheet": 75 },
+    "ply34": { "sheet": 95 },
+    "ply14": { "sheet": 40 }
+  },
+  "hardware": [
+    { "match": "silicone", "each": 8 },
+    { "match": "Anti-tip", "each": 12 },
+    { "match": "shims", "each": 7 },
+    { "match": "floor cleats", "each": 2 },
+    { "match": "washer-head cabinet screws", "each": 0.35 },
+    { "match": "CLIP top", "each": 9 },
+    { "match": "mounting plate", "each": 2.5 },
+    { "match": "TANDEM", "each": 62 },
+    { "match": "Bar pull", "each": 10 },
+    { "match": "TIP-ON", "each": 15 },
+    { "match": "Shelf pins", "each": 0.3 },
+    { "match": "round leg", "each": 18 },
+    { "match": "vessel sink", "each": 130 },
+    { "match": "faucet", "each": 150 },
+    { "match": "P-trap", "each": 45 },
+    { "match": "Confirmat", "each": 0.15 },
+    { "match": "connector screws", "each": 0.9 },
+    { "match": "screws", "each": 0.1 },
+    { "match": "U-drawer", "each": 2 },
+    { "match": "Edgebanding", "each": 1.1 }
+  ]
+}

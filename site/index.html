@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plywise: custom cabinetry, built for your walls</title>
+<meta name="description" content="Scan a room with your iPhone. Plywise designs modern European cabinetry for that exact wall, shows it life-size in AR, and hands a local CNC shop the files to cut it, grain-matched. Open source.">
+<meta property="og:title" content="Plywise: custom cabinetry, built for your walls">
+<meta property="og:description" content="iPhone scan → modern European cabinets planned for your space → see them in AR → grain-matched CNC files for a local shop. Open source.">
+<meta property="og:image" content="https://plywise.xyz/img/og.jpg">
+<meta property="og:url" content="https://plywise.xyz/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#F3EEE6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#15120F" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="img/favicon.png">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Design language: DESIGN.md. A 1960s European furniture catalogue, set in 2026. */
+  :root {
+    --paper: #F3EEE6; --bone: #FBF8F2; --ink: #1C1915; --muted: #6E655B; --rule: rgba(28, 25, 21, .14);
+    --walnut: #3E2A1E; --teak: #9A5B32; --brass: #B4955A; --signal: #D8572A; --on-walnut: #F1E6D6;
+    --serif: "Instrument Serif", "Didot", "Bodoni 72", Georgia, serif;
+    --sans: Jost, "Futura", "Century Gothic", system-ui, sans-serif;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #15120F; --bone: #1E1A16; --ink: #F1EBE1; --muted: #A89D90; --rule: rgba(241, 235, 225, .14);
+      --teak: #C17E4F; --brass: #C9AC72; --signal: #E5683C;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #15120F; --bone: #1E1A16; --ink: #F1EBE1; --muted: #A89D90; --rule: rgba(241, 235, 225, .14);
+    --teak: #C17E4F; --brass: #C9AC72; --signal: #E5683C;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 17px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+  img { display: block; max-width: 100%; height: auto; }
+  a { color: inherit; text-decoration-color: var(--brass); text-underline-offset: 4px; }
+  a:hover { color: var(--teak); }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 400; margin: 0; letter-spacing: -.012em; }
+  h1 { font-size: clamp(60px, 8.4vw, 128px); line-height: .94; }
+  h2 { font-size: clamp(38px, 5.6vw, 72px); line-height: 1; }
+  h3 { font-size: 28px; line-height: 1.1; }
+  em { font-style: italic; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 40px); }
+  .label { font: 500 12px/1.4 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  .label b { color: var(--ink); font-weight: 600; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--signal); vertical-align: middle; margin-right: 8px; }
+  .lead { font-size: clamp(18px, 1.6vw, 21px); color: var(--muted); max-width: 34em; }
+  .rule { border: 0; border-top: 1px solid var(--rule); margin: 0; }
+
+  .btn { display: inline-flex; align-items: center; gap: 12px; padding: 14px 22px; font: 500 15px var(--sans); letter-spacing: .02em;
+    text-decoration: none; border: 1px solid var(--ink); border-radius: 3px; color: var(--ink); background: transparent; cursor: pointer; transition: background .25s, color .25s; }
+  .btn:hover { background: var(--ink); color: var(--paper); }
+  .btn.solid { background: var(--ink); color: var(--paper); }
+  .btn.solid:hover { background: var(--teak); border-color: var(--teak); color: #fff; }
+  .btn .arr { transition: transform .25s; }
+  .btn:hover .arr { transform: translateX(4px); }
+
+  /* nav */
+  nav { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--rule); }
+  nav .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
+  .brand { font: 400 30px/1 var(--serif); text-decoration: none; letter-spacing: -.01em; display: flex; align-items: baseline; gap: 2px; }
+  .brand i { width: 7px; height: 7px; border-radius: 50%; background: var(--brass); display: inline-block; }
+  nav .links { margin-left: auto; display: flex; gap: 26px; align-items: center; }
+  nav .links a { text-decoration: none; font-size: 14px; letter-spacing: .04em; }
+  nav .btn { padding: 8px 14px; font-size: 13px; }
+  @media (max-width: 820px) { nav .links a:not(.btn) { display: none; } }
+
+  /* hero */
+  .hero { padding: clamp(48px, 8vw, 110px) 0 0; }
+  .hero .top { display: grid; grid-template-columns: 1.35fr 1fr; gap: 40px; align-items: end; }
+  .hero .lead { margin: 0 0 26px; }
+  .hero .ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .hero figure { margin: clamp(36px, 6vw, 70px) 0 0; }
+  .plate img, .plate video { width: 100%; aspect-ratio: 3 / 2; object-fit: cover; display: block; background: var(--bone); }
+  .plate figcaption { display: flex; justify-content: space-between; gap: 16px; padding: 14px 0 0; flex-wrap: wrap; }
+  @media (max-width: 900px) { .hero .top { grid-template-columns: 1fr; } }
+
+  section { padding: clamp(72px, 10vw, 130px) 0; }
+  .head { display: grid; grid-template-columns: 220px 1fr; gap: 24px 40px; margin-bottom: clamp(36px, 5vw, 60px); }
+  .head .label { padding-top: 14px; }
+  @media (max-width: 760px) { .head { grid-template-columns: 1fr; } .head .label { padding-top: 0; } }
+
+  /* steps */
+  .steps { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--rule); }
+  .steps > div { padding: 26px 26px 6px 0; border-right: 1px solid var(--rule); }
+  .steps > div + div { padding-left: 26px; }
+  .steps > div:last-child { border-right: 0; }
+  .steps .n { font: 400 64px/1 var(--serif); color: var(--brass); }
+  .steps h3 { margin: 18px 0 8px; }
+  .steps p { margin: 0 0 20px; color: var(--muted); font-size: 15.5px; }
+  @media (max-width: 900px) { .steps { grid-template-columns: 1fr 1fr; } .steps > div:nth-child(2) { border-right: 0; } .steps > div:nth-child(3) { padding-left: 0; } .steps > div:nth-child(n+3) { border-top: 1px solid var(--rule); } }
+  @media (max-width: 540px) { .steps { grid-template-columns: 1fr; } .steps > div { border-right: 0; padding-left: 0 !important; } .steps > div + div { border-top: 1px solid var(--rule); } }
+
+  /* collection */
+  .collection { display: grid; grid-template-columns: 1.25fr 1fr; gap: clamp(20px, 3vw, 40px); }
+  .collection .plate:first-child { grid-row: span 2; }
+  .collection .facts-row, .collection .wide { grid-column: 1 / -1; }
+  .collection .wide img { aspect-ratio: 21 / 9; }
+  .collection .facts-row .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 28px; border-top: 1px solid var(--rule); }
+  .collection .facts-row .facts li { grid-template-columns: 1fr; gap: 4px; }
+  @media (max-width: 860px) { .collection .facts-row .facts { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px) { .collection .facts-row .facts { grid-template-columns: 1fr; } }
+  .collection .plate:first-child img { aspect-ratio: 4 / 5; }
+  .collection h3 { margin-top: 4px; }
+  @media (max-width: 860px) { .collection { grid-template-columns: 1fr; } .collection .plate:first-child img { aspect-ratio: 3 / 2; } }
+
+  /* grain */
+  .band { background: var(--bone); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 90px); align-items: center; }
+  .split p { color: var(--muted); }
+  .facts { list-style: none; padding: 0; margin: 28px 0 0; border-top: 1px solid var(--rule); }
+  .facts li { padding: 14px 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 150px 1fr; gap: 16px; font-size: 15.5px; }
+  .facts li span:first-child { font: 500 12px/1.9 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+  .facts li span:last-child { color: var(--muted); }
+  @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+  @media (max-width: 480px) { .facts li { grid-template-columns: 1fr; gap: 2px; } }
+  svg.sheet { width: 100%; height: auto; }
+
+  /* proportion */
+  svg.phi { width: 100%; height: auto; }
+  svg.phi .tk { stroke: var(--muted); stroke-width: 1; }
+  svg.phi .rt { font: 400 22px var(--serif); fill: var(--ink); }
+  svg.phi .rt.sm { font: 500 11px var(--sans); letter-spacing: .14em; text-transform: uppercase; fill: var(--muted); }
+  svg.phi .phi-big { font: italic 400 84px var(--serif); fill: var(--brass); }
+  .calm { font: italic 400 clamp(24px, 2.6vw, 34px)/1.25 var(--serif); margin: 34px 0 0; max-width: 24em; }
+
+  /* styles */
+  .cities { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--rule); }
+  .cities div { padding: 24px 22px 8px 0; }
+  .cities div + div { padding-left: 22px; border-left: 1px solid var(--rule); }
+  .cities h3 { font-size: 38px; }
+  .cities p { color: var(--muted); font-size: 15px; margin: 8px 0 16px; }
+  @media (max-width: 860px) { .cities { grid-template-columns: 1fr 1fr; } .cities div:nth-child(3) { border-left: 0; padding-left: 0; } .cities div:nth-child(n+3) { border-top: 1px solid var(--rule); } }
+
+  /* demo */
+  .demo { border: 1px solid var(--rule); background: #ece9e4; position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 4px; }
+  .demo iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .demo .poster { position: absolute; inset: 0; display: grid; place-items: center; cursor: pointer; background: center / cover no-repeat; }
+  .demo .poster span { background: var(--ink); color: var(--paper); padding: 14px 22px; border-radius: 3px; font-weight: 500; letter-spacing: .03em; }
+  /* finger-scroll slider: flick through, the card in the middle is the pick */
+  .picker { display: flex; gap: 10px; margin: 18px calc(-1 * clamp(16px, 4vw, 40px)) 0; padding: 4px clamp(16px, 4vw, 40px) 10px;
+    overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .picker::-webkit-scrollbar { display: none; }
+  .picker button { flex: 0 0 auto; scroll-snap-align: center; min-width: 150px; text-align: left; font: 400 19px/1.1 var(--serif);
+    padding: 14px 16px; border: 1px solid var(--rule); border-radius: 7px; background: transparent; color: var(--ink); cursor: pointer;
+    transition: background .25s, border-color .25s, transform .25s; }
+  .picker button small { display: block; margin-top: 6px; font: 500 10px var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .picker button:hover { transform: translateY(-2px); }
+  .picker button.on { border-color: var(--brass); background: color-mix(in srgb, var(--brass) 14%, transparent); }
+  @media (max-width: 640px) { .demo { aspect-ratio: 3 / 4; } }
+
+  /* makers */
+  .makers img { border-radius: 4px; border: 1px solid var(--rule); }
+
+  /* open source */
+  .oss { background: var(--walnut); color: var(--on-walnut); }
+  .oss .label { color: rgba(241, 230, 214, .65); }
+  .oss .grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid rgba(241, 230, 214, .18); }
+  .oss .grid div { padding: 24px 24px 8px 0; }
+  .oss .grid div + div { padding-left: 24px; border-left: 1px solid rgba(241, 230, 214, .18); }
+  .oss p { color: rgba(241, 230, 214, .78); }
+  .oss code { font-size: 14px; background: rgba(0, 0, 0, .25); padding: 2px 6px; border-radius: 3px; }
+  .oss .btn { border-color: var(--on-walnut); color: var(--on-walnut); }
+  .oss .btn:hover { background: var(--on-walnut); color: var(--walnut); }
+  @media (max-width: 860px) { .oss .grid { grid-template-columns: 1fr; } .oss .grid div + div { padding-left: 0; border-left: 0; border-top: 1px solid rgba(241, 230, 214, .18); } }
+
+  /* status */
+  .status { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--rule); }
+  .status div { padding: 24px 24px 8px 0; }
+  .status div + div { padding-left: 24px; border-left: 1px solid var(--rule); }
+  .status p { color: var(--muted); font-size: 15.5px; }
+  @media (max-width: 860px) { .status { grid-template-columns: 1fr; } .status div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule); } }
+
+  footer { padding: 36px 0 60px; border-top: 1px solid var(--rule); }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 30px; align-items: baseline; }
+  footer .brand { font-size: 24px; margin-right: auto; }
+
+  /* quiet entrance */
+  .rise { opacity: 0; transform: translateY(8px); transition: opacity .6s ease-out, transform .6s ease-out; }
+  .rise.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .rise { opacity: 1; transform: none; transition: none; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="#top">Plywise<i></i></a>
+    <div class="links">
+      <a href="#how">How it works</a>
+      <a href="#collection">Collection</a>
+      <a href="#proportion">Proportion</a>
+      <a href="#grain">Craft</a>
+      <a href="#makers">For makers</a>
+      <a href="#open">Open source</a>
+      <a class="btn" href="https://github.com/bg-xyz/ar-cabinetry">GitHub <span class="arr">→</span></a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="label" style="margin-bottom:22px"><span class="dot"></span>Custom cabinetry, planned from a scan of your room</div>
+        <h1>Built for <em>your walls.</em></h1>
+      </div>
+      <div>
+        <p class="lead">Scan a room with your iPhone. Plywise designs modern European cabinetry for that exact wall, shows it to you life-size in the room, and hands a local CNC shop every file to cut it.</p>
+        <div class="ctas">
+          <a class="btn solid" href="#demo">Spin the 3D model <span class="arr">→</span></a>
+          <a class="btn" href="#how">How it works</a>
+        </div>
+      </div>
+    </div>
+    <figure class="plate hero-film">
+      <video id="film" muted loop playsinline preload="none" poster="img/photo-lifestyle.jpg" aria-label="Three rooms: a woman trails her fingertips across a walnut dresser; steam rises in an oak and walnut coffee nook; sunlight crosses a white oak kitchen island">
+        <source src="img/film-plywise.mp4" type="video/mp4">
+      </video>
+      <figcaption><span class="label" id="filmCaption"><b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · banded edges · grain matched</span><span class="label">Visualisations from the engine's designs</span></figcaption>
+    </figure>
+  </div>
+</header>
+
+<section id="how">
+  <div class="wrap">
+    <div class="head rise">
+      <div class="label">How it works</div>
+      <h2>From a bare wall to a cut list, <em>in minutes.</em></h2>
+    </div>
+    <div class="steps rise">
+      <div><div class="n">01</div><h3>Choose</h3><p>Tell it what you're building: a vanity, a bookcase, a dresser, a desk, a coffee bar, an island.</p></div>
+      <div><div class="n">02</div><h3>Scan</h3><p>Walk the room with a LiDAR iPhone. Walls, doors, windows, ceiling height, the old sink: all measured.</p></div>
+      <div><div class="n">03</div><h3>See it</h3><p>Tap a wall. It's planned for the clear space, then locked onto the wall in AR, in real wood.</p></div>
+      <div><div class="n">04</div><h3>Have it cut</h3><p>A job package any 3-axis CNC shop can cut: layered DXF sheets, cut list, hardware and a quote.</p></div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<section id="collection">
+  <div class="wrap">
+    <div class="head rise">
+      <div class="label">The collection</div>
+      <div>
+        <h2>Seven pieces, <em>one system.</em></h2>
+        <p class="lead" style="margin-top:18px">Homes, offices and caf&eacute;s: every piece is a plywood box on the 32&nbsp;mm system. The planner sizes it to your wall, picks the layout, and keeps the code clearances, so the only choices left are the nice ones: wood, style, grain.</p>
+      </div>
+    </div>
+    <div class="collection">
+      <figure class="plate rise" style="margin:0">
+        <img src="img/photo-bookcase.jpg" alt="A white oak built-in bookcase with three open bays above closed doors, clean banded edges, in a living room with a leather lounge chair" width="1536" height="1024" loading="lazy">
+        <figcaption><div><div class="label"><b>Nº 02</b> · Built-in bookcase · wall to wall</div><h3>To the ceiling, around the window.</h3></div><span class="label">Visualisation</span></figcaption>
+      </figure>
+      <figure class="plate rise" style="margin:0">
+        <img src="img/photo-vanity.jpg" alt="A floating walnut vanity with a birch top, white vessel sink and black faucet in a terrazzo bathroom" width="1536" height="1024" loading="lazy">
+        <figcaption><div><div class="label"><b>Nº 03</b> · Floating vanity · 36 in</div><h3>Centred on the old drain.</h3></div><span class="label">Visualisation</span></figcaption>
+      </figure>
+      <figure class="plate rise" style="margin:0">
+        <img src="img/photo-dresser.jpg" alt="A walnut dresser with eight banded drawer fronts set into the case, on tapered walnut legs with brass tips, in a sunlit bedroom" width="1536" height="1024" loading="lazy">
+        <figcaption><div><div class="label"><b>Nº 04</b> · Dresser · 60 in</div><h3>One board of walnut, eight drawers.</h3></div><span class="label">Visualisation</span></figcaption>
+      </figure>
+      <figure class="plate rise wide" style="margin:0">
+        <img src="img/photo-island.jpg" alt="A white oak kitchen island with banks of drawers, a door pair, a toe kick and a travertine top, under two ceramic pendants in a sunlit kitchen" width="1536" height="1024" loading="lazy">
+        <figcaption><div><div class="label"><b>Nº 05</b> · Kitchen island · 84 in</div><h3>42 inches from your counters, seats for three.</h3></div><span class="label">Visualisation</span></figcaption>
+      </figure>
+      <div class="rise facts-row">
+        <ul class="facts" style="margin-top:0">
+          <li><span>Vanity</span><span>24 to 84 in. Double sink from 60 in. Keeps 15 in from the toilet, wraps the trap with U-drawers.</span></li>
+          <li><span>Bookcase</span><span>Fills the wall, bays no wider than 36 in, as tall as the ceiling lets you stand it up.</span></li>
+          <li><span>Console</span><span>36 to 84 in on legs; doors at the ends, drawers between. Slides under a high window.</span></li>
+          <li><span>Dresser</span><span>30 to 72 in, banks of four drawers graduated golden.</span></li>
+          <li><span>Desk</span><span>48 to 90 in. File pedestals, a knee space at least 30 in wide, writing height 30 in.</span></li>
+          <li><span>Coffee bar</span><span>Wall to wall at 36 in: drawers for cups and beans, doors for the supplies. Caf&eacute;s, kitchens, offices.</span></li>
+          <li><span>Island</span><span>48 to 90 in, finished all round, a 12 in seating overhang, facing your counters.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="proportion">
+  <div class="wrap split">
+    <figure class="rise" style="margin:0">
+      <svg class="phi" viewBox="0 0 700 430" role="img" aria-label="A walnut dresser with four drawers graduated by the golden ratio: each drawer is 1.174 times the one above it, and the bottom drawer is 1.618 times the top one">
+        <rect x="80" y="40" width="380" height="316.0" fill="#24180f"/><rect x="80" y="40" width="380" height="316.0" fill="none" stroke="var(--walnut)" stroke-width="6"/>
+        <rect x="86" y="50.0" width="368" height="55.7" fill="url(#walnut-grain)" stroke="var(--walnut)" stroke-width="1"/><rect x="86" y="109.7" width="368" height="65.4" fill="url(#walnut-grain)" stroke="var(--walnut)" stroke-width="1"/><rect x="86" y="179.1" width="368" height="76.8" fill="url(#walnut-grain)" stroke="var(--walnut)" stroke-width="1"/><rect x="86" y="259.9" width="368" height="90.1" fill="url(#walnut-grain)" stroke="var(--walnut)" stroke-width="1"/>
+        <rect x="208" y="63.0" width="124" height="4" rx="2" fill="#1c1915"/><rect x="208" y="122.7" width="124" height="4" rx="2" fill="#1c1915"/><rect x="208" y="192.1" width="124" height="4" rx="2" fill="#1c1915"/><rect x="208" y="272.9" width="124" height="4" rx="2" fill="#1c1915"/>
+        <polygon points="100,356.0 114,356.0 108,406.0 103,406.0" fill="var(--walnut)"/>
+        <polygon points="426,356.0 440,356.0 437,406.0 432,406.0" fill="var(--walnut)"/>
+        <line x1="0" x2="700" y1="407.0" y2="407.0" class="tk"/>
+        <line x1="478" x2="490" y1="50.0" y2="50.0" class="tk"/><line x1="484" x2="484" y1="53.0" y2="102.7" class="tk"/><text x="500" y="83.9" class="rt">1</text><line x1="478" x2="490" y1="109.7" y2="109.7" class="tk"/><line x1="484" x2="484" y1="112.7" y2="172.1" class="tk"/><text x="500" y="148.4" class="rt">1.174</text><line x1="478" x2="490" y1="179.1" y2="179.1" class="tk"/><line x1="484" x2="484" y1="182.1" y2="252.9" class="tk"/><text x="500" y="223.5" class="rt">1.378</text><line x1="478" x2="490" y1="259.9" y2="259.9" class="tk"/><line x1="484" x2="484" y1="262.9" y2="347.0" class="tk"/><text x="500" y="310.9" class="rt">1.618</text><line x1="478" x2="490" y1="350.0" y2="350.0" class="tk"/>
+        <text x="574" y="128" class="phi-big">&#966;</text>
+        <text x="560" y="168" class="rt sm">each step</text><text x="560" y="188" class="rt sm">&#215; 1.174</text>
+        <text x="560" y="226" class="rt sm">bottom</text><text x="560" y="246" class="rt sm">= 1.618 &#215; top</text>
+      </svg>
+    </figure>
+    <div class="rise">
+      <div class="label" style="margin-bottom:18px">Proportion</div>
+      <h2>Beauty in <em>the math.</em></h2>
+      <p class="lead" style="margin-top:20px">Getting the proportions right used to be the expensive part. Designers and architects spent the hours on the ratios, and charged a fee or a share of the build for it. Everyone else settled for flat-pack or showroom boxes that only hinted at it. Plywise does the math for every wall it plans.</p>
+      <ul class="facts">
+        <li><span>Golden ratio</span><span>Drawers graduate by &#966; = 1.618. The bottom drawer is 1.618 times the top, in equal steps, however many drawers there are.</span></li>
+        <li><span>One line</span><span>Top drawers line up across a run, so pulls and reveals read as one unbroken line.</span></li>
+        <li><span>Golden section</span><span>A drawer bank beside a sink, a desk pedestal, the closed base of a bookcase: each takes 0.382 of the whole.</span></li>
+        <li><span>Scaled pulls</span><span>Every pull is about a third of its drawer's width. A wide drawer never gets a lost little pull.</span></li>
+        <li><span>Checked</span><span>Every design passes eight proportion checks before you see it: no near-misses, no squat doors, runs that mirror.</span></li>
+      </ul>
+      <p class="calm">When nothing is off, the eye settles, and you stop noticing the furniture and start noticing the room.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="grain">
+  <div class="wrap split">
+    <div class="rise">
+      <div class="label" style="margin-bottom:18px">The craft</div>
+      <h2>Grain that <em>runs on.</em></h2>
+      <p class="lead" style="margin-top:20px">Fronts are cut in sequence from one panel and laid out on the sheet exactly as they hang, so the figure flows from drawer to drawer and across the whole face. Open the drawers side by side and the bottoms match too.</p>
+      <ul class="facts">
+        <li><span>Across</span><span>Horizontal grain, flowing sideways across every front. The default.</span></li>
+        <li><span>Waterfall</span><span>Vertical grain cascading down each stack of drawers.</span></li>
+        <li><span>Off</span><span>Every part nested on its own for the best yield. The app shows the difference in sheets.</span></li>
+        <li><span>Fit</span><span>Dados cut a touch loose for glue, and a fit-test coupon in every job, because it's wood.</span></li>
+      </ul>
+    </div>
+    <figure class="rise" style="margin:0">
+      <svg class="sheet" viewBox="0 0 640 380" role="img" aria-label="A 4 by 8 sheet with eight drawer fronts laid out in sequence as one panel, the wood grain running continuously across them">
+        <defs>
+          <pattern id="walnut-grain" width="640" height="380" patternUnits="userSpaceOnUse">
+            <rect width="640" height="380" fill="#5A3A26"/>
+            <g fill="none" stroke="#7A5136" stroke-width="1.4" opacity=".9">
+              <path d="M0 40 C120 30 200 60 320 48 S520 30 640 44"/><path d="M0 70 C140 62 220 92 330 80 S520 66 640 76"/>
+              <path d="M0 104 C110 96 230 128 340 112 S540 98 640 108"/><path d="M0 138 C150 128 240 160 350 146 S530 132 640 142"/>
+              <path d="M0 170 C130 160 210 196 320 180 S520 164 640 174"/><path d="M0 206 C140 196 250 230 360 214 S540 200 640 210"/>
+              <path d="M0 240 C120 230 230 262 340 248 S520 234 640 244"/><path d="M0 274 C150 266 250 296 350 282 S540 268 640 278"/>
+              <path d="M0 306 C130 298 230 330 340 316 S520 300 640 312"/>
+            </g>
+            <g fill="none" stroke="#3E2618" stroke-width=".8" opacity=".7">
+              <path d="M0 56 C160 48 240 76 360 64 S560 50 640 60"/><path d="M0 122 C170 112 260 146 380 130 S560 116 640 126"/>
+              <path d="M0 190 C150 180 250 214 370 198 S560 184 640 194"/><path d="M0 258 C160 248 260 280 380 266 S560 252 640 262"/>
+            </g>
+          </pattern>
+        </defs>
+        <rect x="1" y="1" width="638" height="378" fill="none" stroke="currentColor" stroke-opacity=".35"/>
+        <text x="12" y="22" font-family="Jost, sans-serif" font-size="11" letter-spacing="1.6" fill="currentColor" opacity=".6">SHEET 01 · BALTIC BIRCH 18 MM · 2440 × 1220</text>
+        <g stroke="#F3EEE6" stroke-width="5">
+          <rect x="40" y="44" width="560" height="300" fill="url(#walnut-grain)"/>
+          <line x1="320" y1="44" x2="320" y2="344"/>
+          <line x1="40" y1="110" x2="600" y2="110"/><line x1="40" y1="186" x2="600" y2="186"/><line x1="40" y1="262" x2="600" y2="262"/>
+        </g>
+        <g fill="#1C1915">
+          <rect x="160" y="60" width="40" height="5" rx="2"/><rect x="440" y="60" width="40" height="5" rx="2"/>
+          <rect x="160" y="126" width="40" height="5" rx="2"/><rect x="440" y="126" width="40" height="5" rx="2"/>
+          <rect x="160" y="202" width="40" height="5" rx="2"/><rect x="440" y="202" width="40" height="5" rx="2"/>
+          <rect x="160" y="278" width="40" height="5" rx="2"/><rect x="440" y="278" width="40" height="5" rx="2"/>
+        </g>
+        <text x="40" y="368" font-family="Jost, sans-serif" font-size="11" letter-spacing="1.6" fill="currentColor" opacity=".6">8 FRONTS · ONE PANEL · IN THE ORDER THEY HANG</text>
+      </svg>
+      <figcaption class="label" style="margin-top:12px">Schematic of the dresser's matched face, as the engine nests it</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="styles">
+  <div class="wrap">
+    <div class="head rise">
+      <div class="label">Four styles</div>
+      <h2>One box, <em>four faces.</em></h2>
+    </div>
+    <div class="cities rise">
+      <div><h3>Slab</h3><p>Full-overlay slab fronts with a slim bar pull near the top. The everyday classic.</p></div>
+      <div><h3>Frame</h3><p>The plywood box frames every front; the ply edge is the detail.</p></div>
+      <div><h3>Shadow</h3><p>Fronts set back into the box, a shadow line all round.</p></div>
+      <div><h3>Flush</h3><p>Flush ends, no hardware, push to open. Pure planes.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="demo">
+  <div class="wrap">
+    <div class="head rise">
+      <div class="label">Live 3D</div>
+      <div>
+        <h2>These are the parts <em>the router cuts.</em></h2>
+        <p class="lead" style="margin-top:18px">Drag to orbit, change the wood, pull the drawers open. Every model is built by the engine, down to the plies in the Baltic birch.</p>
+      </div>
+    </div>
+    <div class="demo" id="demoBox">
+      <div class="poster" id="poster" style="background-image:url(img/demo-poster.jpg)"><span>Load the 3D model · 3 MB</span></div>
+    </div>
+    <div class="picker" id="picker"></div>
+    <p style="margin:14px 0 0"><a class="label" id="fullscreen" href="demo/dresser-60-walnut.html" target="_blank" rel="noopener">Open full screen · on iPhone, view it in your room →</a></p>
+  </div>
+</section>
+
+<section id="makers">
+  <div class="wrap split makers">
+    <div class="rise">
+      <div class="label" style="margin-bottom:18px">For makers and CNC shops</div>
+      <h2>Files your router <em>already speaks.</em></h2>
+      <p class="lead" style="margin-top:20px">Built for the flat-bed 3-axis routers in thousands of small shops, not a $300k beam saw.</p>
+      <ul class="facts">
+        <li><span>Layers</span><span>One DXF layer per operation and depth, ready for a VCarve or Aspire toolpath template.</span></li>
+        <li><span>Machining</span><span>Face-only, no edge boring; operations grouped for machines without a tool changer.</span></li>
+        <li><span>Hardware</span><span>Blum CLIP top hinges and TANDEM runners, drilled on the 32&nbsp;mm system.</span></li>
+        <li><span>Joinery</span><span>Dadoed, captured backs; U-drawers around the trap; fixed shelves in dados; counterbored pulls.</span></li>
+        <li><span>Sheets</span><span>Grain-matched nesting, measured sheet thickness, a fit-test coupon and a quote with yield.</span></li>
+      </ul>
+      <p style="margin-top:26px"><a class="btn" href="demo/dresser-60-walnut-jobsheet.html">See a real job sheet <span class="arr">→</span></a></p>
+    </div>
+    <img class="rise" src="img/udrawer.jpg" alt="Open vanity drawers showing a U-shaped drawer box that wraps around the sink drain" loading="lazy">
+  </div>
+</section>
+
+<section class="oss" id="open">
+  <div class="wrap">
+    <div class="head">
+      <div class="label">Open source</div>
+      <div>
+        <h2>The engine is <em>open.</em></h2>
+        <p class="lead" style="margin-top:18px;color:rgba(241,230,214,.78)">The cabinet engine and its hardware data are open source under the GNU AGPL-3.0. Read every rule, check every hole, cut the files on your own machine. Build on it and your changes stay open too.</p>
+      </div>
+    </div>
+    <div class="grid">
+      <div><h3>Engine</h3><p>TypeScript, no dependencies. A wall goes in; every part, hole and dado comes out. 190+ tests and a design critic that checks every plan against eight proportion rules.</p></div>
+      <div><h3>Shop files</h3><p>Layered DXF per sheet for VCarve and Aspire, face-only machining for 3-axis routers, grain-matched fronts, cut list, hardware and install kit.</p></div>
+      <div><h3>Try it</h3><p><code>cd engine &amp;&amp; npm run samples</code> builds every sample into a full job package with a 3D preview.</p></div>
+    </div>
+    <p style="margin-top:34px"><a class="btn" href="https://github.com/bg-xyz/ar-cabinetry">Star it on GitHub <span class="arr">→</span></a></p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="head rise">
+      <div class="label">Where it's at</div>
+      <h2>Building <em>in the open.</em></h2>
+    </div>
+    <div class="status rise">
+      <div><div class="label"><span class="dot" style="background:var(--brass)"></span>Working</div><h3 style="margin-top:10px">Cabinet engine</h3><p>Vanities, bookcases, consoles, dressers, desks, coffee bars and islands; golden proportions; grain matching; scribes and install kit; quotes.</p></div>
+      <div><div class="label"><span class="dot"></span>Beta</div><h3 style="margin-top:10px">iPhone + Vision Pro</h3><p>Say or pick what you're building, scan, place it life-size and save it in the room. On TestFlight. Next: sending the job.</p></div>
+      <div><div class="label"><span class="dot" style="background:var(--muted)"></span>Next</div><h3 style="margin-top:10px">First cut, then shops</h3><p>A test piece on a real 5×10 router, then a simple way to send jobs to local shops.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top">Plywise<i></i></a>
+    <span class="label">© 2026 · Engine AGPL-3.0</span>
+    <a class="label" href="https://github.com/bg-xyz/ar-cabinetry">GitHub</a>
+    <a class="label" href="privacy.html">Privacy</a>
+    <span class="label">Wood textures <a href="https://ambientcg.com">ambientCG</a> (CC0) · photos are visualisations</span>
+  </div>
+</footer>
+
+<script>
+  // The 3D demos are full engine previews (~3 MB each), so they load on request.
+  const DEMOS = [
+    ['dresser-60-walnut', 'Dresser · walnut'],
+    ['island-84-oak', 'Kitchen island · white oak'],
+    ['nook-60-coffee', 'Coffee nook · oak + walnut'],
+    ['bookcase-108-builtin', 'Bookcase · white oak'],
+    ['vanity-36-udrawers', 'Vanity · U-drawers'],
+    ['vanity-48-milan', 'Vanity · Flush'],
+    ['vanity-48-run', 'Vanity · drawer bank'],
+    ['vanity-30-recessed', 'Vanity · Shadow'],
+    ['sideboard-60-legs', 'Sideboard · on legs'],
+  ];
+  const box = document.getElementById('demoBox'), picker = document.getElementById('picker');
+  let current = DEMOS[0][0];
+  function show(id) {
+    current = id;
+    document.getElementById('fullscreen').href = `demo/${id}.html`;
+    for (const b of picker.children) b.classList.toggle('on', b.dataset.id === id);
+    if (document.getElementById('poster')) return; // not loaded yet: just remember the choice
+    box.innerHTML = `<iframe src="demo/${id}.html" title="3D cabinet preview" loading="lazy" allow="fullscreen"></iframe>`;
+  }
+  for (const [id, label] of DEMOS) {
+    const b = document.createElement('button');
+    const [title, detail] = label.split(' · ');
+    b.innerHTML = `${title}<small>${detail ?? ''}</small>`; b.dataset.id = id;
+    b.onclick = () => { document.getElementById('poster')?.remove(); show(id); b.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' }); };
+    picker.appendChild(b);
+  }
+  document.getElementById('poster').onclick = () => { document.getElementById('poster').remove(); show(current); };
+  show(current);
+
+  // the hero film: plays muted while on screen; the still stays if motion is reduced or the file is missing
+  const film = document.getElementById('film');
+  // the caption follows the scene on screen
+  const scenes = [[0, '<b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · banded edges · grain matched'],
+    [4.8, '<b>Nº 06</b> · Coffee nook · 60 in · White oak, walnut doors · built in'],
+    [10.9, '<b>Nº 05</b> · Kitchen island · 84 in · White oak · finished all round'],
+    [13.3, '<b>Nº 01</b> · Dresser · 60 in · Walnut, shadow inset · banded edges · grain matched']];
+  const cap = document.getElementById('filmCaption');
+  film?.addEventListener('timeupdate', () => {
+    const html = scenes.filter(([t]) => film.currentTime >= t).pop()[1];
+    if (cap.innerHTML !== html) cap.innerHTML = html;
+  });
+  if (film && !matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    film.preload = 'auto';
+    new IntersectionObserver(([e]) => { if (e.isIntersecting) film.play().catch(() => {}); else film.pause(); }, { threshold: 0.2 }).observe(film);
+  }
+
+  // quiet entrance as sections scroll in
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver((es) => {
+    for (const e of es) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }, { rootMargin: '0px 0px -8% 0px' }) : null;
+  for (const el of document.querySelectorAll('.rise')) io ? io.observe(el) : el.classList.add('in');
+</script>
+</body>
+</html>

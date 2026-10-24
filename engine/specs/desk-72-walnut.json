@@ -1,0 +1,62 @@
+{
+  "name": "72\" desk, walnut",
+  "units": "mm",
+  "style": {
+    "preset": "classic-euro",
+    "grainMatch": "across",
+    "frontFinish": "walnut",
+    "carcassFinish": "walnut",
+    "topFinish": "walnut"
+  },
+  "mounting": "toe-kick",
+  "elevation": 0,
+  "kickHeight": 101.6,
+  "endPanels": "both",
+  "cabinets": [
+    {
+      "id": "A",
+      "width": 387.3,
+      "height": 642.4,
+      "depth": 558.8,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "width": 1018.1,
+      "height": 642.4,
+      "depth": 558.8,
+      "zones": [],
+      "knee": true
+    },
+    {
+      "id": "C",
+      "width": 387.3,
+      "height": 642.4,
+      "depth": 558.8,
+      "zones": [
+        {
+          "type": "drawer",
+          "size": "fill"
+        },
+        {
+          "type": "drawer",
+          "size": "fill"
+        }
+      ]
+    }
+  ],
+  "top": {
+    "material": "bb18",
+    "overhangSides": 0,
+    "overhangFront": 25.4
+  }
+}

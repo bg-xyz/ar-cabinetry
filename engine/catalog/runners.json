@@ -1,0 +1,17 @@
+{
+  "blum-tandem-563h": {
+    "name": "Blum TANDEM plus BLUMOTION 563H undermount (5/8\" drawer sides)",
+    "lengths": [229, 305, 381, 457, 533],
+    "insideWidthDeduction": 42,
+    "lengthDeduction": 10,
+    "maxSideThickness": 16,
+    "bottomRecess": 13,
+    "frontSetback": 3,
+    "firstHoleFromFront": 37,
+    "holeAboveRunnerBottom": 9,
+    "holeDia": 5, "holeDepth": 13,
+    "topClearance": 20,
+    "rearHook": { "dia": 6, "depth": 10, "aboveBottomPanel": 7, "fromSide": 11 },
+    "verify": "Inside width = opening - 42mm and length = runner - 10mm are from Blum. CHECK: screw hole height above runner bottom, rear screw positions, rear-hook hole spec, whether the drawer back needs notching, and drawer-side height clearance."
+  }
+}

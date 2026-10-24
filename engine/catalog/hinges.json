@@ -1,0 +1,18 @@
+{
+  "blum-cliptop-110-overlay": {
+    "name": "Blum CLIP top BLUMOTION 110 full overlay, dowelled (71B3750 family) + 0mm plate",
+    "mount": "overlay",
+    "cupDia": 35, "cupDepth": 13, "cupEdgeDistance": 5,
+    "dowelDia": 8, "dowelDepth": 11, "dowelPitch": 45, "dowelOffset": 9.5,
+    "plate": { "name": "Blum CLIP mounting plate 0mm (173L6100 family)", "holeDia": 5, "holeDepth": 13, "holeSpacing": 32, "setbackFromFront": 37 },
+    "verify": "Cup 35mm, 45/9.5 dowel pattern, 32mm plate holes on the 37mm line are Blum standard. CHECK: exact part numbers, cup edge distance (C) for 18mm overlay on an 18mm side with a 0mm plate (Blum gap table), dowel hole depth."
+  },
+  "blum-cliptop-110-inset": {
+    "name": "Blum CLIP top BLUMOTION 110 inset, dowelled (inset crank) + 0mm plate",
+    "mount": "inset",
+    "cupDia": 35, "cupDepth": 13, "cupEdgeDistance": 5,
+    "dowelDia": 8, "dowelDepth": 11, "dowelPitch": 45, "dowelOffset": 9.5,
+    "plate": { "name": "Blum CLIP mounting plate 0mm (173L6100 family)", "holeDia": 5, "holeDepth": 13, "holeSpacing": 32, "setbackFromFront": 37 },
+    "verify": "CHECK: inset part number, and where the plate line sits for an inset door (engine uses 37mm + the recess setback from the carcass front)."
+  }
+}

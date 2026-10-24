@@ -1,0 +1,4 @@
+{
+  "vessel-round-16": { "name": "Round vessel sink, 16\" (generic)", "kind": "vessel", "bowl": [406, 406], "drainHole": 44, "buy": null },
+  "vessel-rect-20x14": { "name": "Rectangular vessel sink, 20\" x 14\" (generic)", "kind": "vessel", "bowl": [508, 356], "drainHole": 44, "buy": null }
+}
