@@ -3,7 +3,7 @@
 // run.ts moves it into place along the wall.
 
 import { lookup } from './catalog.ts';
-import { pullForFront, splitZones } from './proportion.ts';
+import { PHI, graduate, pullForFront, splitZones } from './proportion.ts';
 import type {
   CabinetSpec, Catalog, Fixture, HardwareLine, Part, Style, Vec3, WorldOp, Zone,
 } from './types.ts';
@@ -145,7 +145,7 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
   zoneSpans.forEach(({ zone, y0, y1 }, zi) => {
     const fz: Vec3 = [0, y0, frontBackZ];
     if (zone.type === 'open') {
-      if (zone.shelves) addShelves(zone.shelves, y0, y1, zi, y0);
+      if (zone.shelves) addShelves(zone.shelves, y0, y1, zi, y0, (style.rhythm ?? 'golden') === 'golden');
       return;
     }
     if (zone.type === 'doors') {
@@ -200,7 +200,9 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
 
   // Adjustable shelves: two columns of 5mm pin holes per side on the 32mm grid (lined up
   // with the hinge plate holes so they never collide), shelves notched around a sink drain.
-  function addShelves(n: number, zy0: number, zy1: number, zi: number, gridOrigin: number) {
+  // Open shelving graduates gently (golden rhythm): the tallest space at the bottom for big books, each one
+  // above it smaller by one ratio, bottom = sqrt(phi) x top. Shelves snap to the 32mm pin rows.
+  function addShelves(n: number, zy0: number, zy1: number, zi: number, gridOrigin: number, graduated = false) {
     const lo = Math.max(t, zy0) + 60, hi = Math.min(H - t, zy1) - 60;
     if (hi - lo < 64) { warnings.push(`${spec.id}: no room for shelves in zone ${zi + 1}`); return; }
     const rows: number[] = [];
@@ -212,8 +214,9 @@ export function buildCabinet(spec: CabinetSpec, style: Style, cat: Catalog, opts
         if (!clash) side.ops.push({ kind: 'hole', at: [sx, y, z], dia: 5, depth: 10, note: 'shelf pin' });
       }
     const z0 = bs + bt + 2, z1 = D - hs - 20;
+    const spaces = graduated ? graduate(n + 1, hi - lo, 0, Math.sqrt(PHI)) : Array.from({ length: n + 1 }, () => (hi - lo) / (n + 1));
     for (let k = 1; k <= n; k++) {
-      const target = lo + ((hi - lo) * k) / (n + 1);
+      const target = lo + spaces.slice(0, k).reduce((a, b) => a + b, 0);
       const row = rows.reduce((a, b) => (Math.abs(b - target) < Math.abs(a - target) ? b : a));
       const sy = row + 4; // shelf rests on the pins
       const d = opts.drain;

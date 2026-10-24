@@ -22,7 +22,7 @@
 
 import type { CabinetSpec, RunSpec, Style, Zone } from './types.ts';
 import { MAX_CEILING_SCRIBE, MAX_FILLER, SCRIBE } from './install.ts';
-import { GOLDEN_MINOR, PHI, goldenSplit } from './proportion.ts';
+import { GOLDEN_MINOR, PHI, goldenSplit, graduate } from './proportion.ts';
 
 const IN = 25.4;
 export const STANDARD_WIDTHS = [24, 30, 36, 42, 48, 54, 60, 66, 72, 84].map((w) => w * IN);
@@ -260,7 +260,10 @@ export function planBookcase(input: PlanInput): Plan {
   const widths = bays(caseW, MAX_BAY);
   const base = baseDoors(topHeight);
   const openH = H - base;
-  const shelves = Math.max(1, Math.round(openH / (13 * IN)) - 1);
+  // enough shelves that the tallest (bottom) space of the graduated stack is no more than 15"
+  let shelves = Math.max(1, Math.round(openH / (13 * IN)) - 1);
+  if ((input.style?.rhythm ?? 'golden') === 'golden')
+    while (graduate(shelves + 1, openH - 120, 0, Math.sqrt(PHI))[0] + 60 > 15 * IN) shelves++;
   const cabinets: CabinetSpec[] = widths.map((w, i) => ({
     id: String.fromCharCode(65 + i), width: w, height: H, depth: CASE_DEPTH,
     zones: [

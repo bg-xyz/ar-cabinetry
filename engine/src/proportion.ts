@@ -25,12 +25,13 @@ export function frontRegion(H: number, style: Style, t: number): number {
   return style.mount === 'inset' ? H - 2 * t - 2 * style.gap : H - style.topReveal - style.bottomReveal;
 }
 
-/** n heights bottom to top that add up to total, each the one above it times one ratio, bottom = phi x top.
+/** n heights bottom to top that add up to total, each the one above it times one ratio, bottom = phi x top
+ *  (or `ratio` x top: open shelving uses the gentler square root of phi).
  *  The spread eases off when the top front would come out shallower than minTop. */
-export function graduate(n: number, total: number, minTop = MIN_TOP_FRONT): number[] {
+export function graduate(n: number, total: number, minTop = MIN_TOP_FRONT, ratio = PHI): number[] {
   if (n <= 1) return [total];
   for (let spread = 1; spread >= 0; spread -= 0.05) {
-    const r = Math.pow(PHI, Math.max(spread, 0) / (n - 1));
+    const r = Math.pow(ratio, Math.max(spread, 0) / (n - 1));
     const w = Array.from({ length: n }, (_, i) => Math.pow(r, n - 1 - i)); // bottom first
     const sum = w.reduce((a, b) => a + b, 0);
     const hs = w.map((x) => (x / sum) * total);
