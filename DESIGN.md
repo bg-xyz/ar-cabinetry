@@ -32,7 +32,7 @@ no chrome. Posh by restraint, never by decoration.
 - Motion: slow fades and 8px rises (400ms, ease-out). Nothing bounces.
 
 ## Names (no one else's marks)
-Leah's rule (2026-10-23): no names or taglines that lean on someone else's brand or imply an origin we don't have.
+Naming rule (2026-10-23): no names or taglines that lean on someone else's brand or imply an origin we don't have.
 Style names are plain descriptive words; the tagline is **"Built for your walls."** ("Make room." was retired: "Make Room for
 Life" and "Make Room for Living" are registered for closet furniture and furniture retail). Run a USPTO search before any
 new name ships, and keep real brand and designer names out of prompts and copy.

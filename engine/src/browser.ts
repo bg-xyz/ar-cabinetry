@@ -1,5 +1,5 @@
 // Entry point for the phone (JavaScriptCore) and the web: the whole engine in one file, catalog
-// included, no file access. Built by `npm run bundle` into app/Resources/plywise-engine.js.
+// included, no file access. Built by `npm run bundle` into dist/plywise-engine.js (the share page and the apps load it).
 //
 //   Plywise.plan(json)   -> { plan, model }   PlanInput in (a measured wall + what's being built), 3D model + where it goes out
 //   Plywise.design(json) -> model              any RunSpec -> 3D model

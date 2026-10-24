@@ -1,6 +1,6 @@
 // Builds the share page, plywise.xyz/d/#<design>: the 3D viewer, but it designs at load time from
 // the design in the link (base64url JSON of a RunSpec, finishes included), with the same engine the
-// app runs (app/Resources/plywise-engine.js). No server, nothing personal in the link.
+// apps run (dist/plywise-engine.js, from `npm run bundle`). No server, nothing personal in the link.
 //
 //   node src/share_page.ts [outDir]      default ../site/d
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, existsSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { TEXTURE_MAPS } from './model3d.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const out = process.argv[2] ?? join(here, '..', '..', 'site', 'd');
-const engine = join(here, '..', '..', 'app', 'Resources', 'plywise-engine.js');
+const engine = join(here, '..', 'dist', 'plywise-engine.js');
 const textures = join(here, '..', 'textures');
 const sample = readFileSync(join(here, '..', 'specs', 'dresser-60-walnut.json'), 'utf8');
 

@@ -20,6 +20,8 @@ concurrency:
 
 jobs:
   build:
+    # the site deploys from the public repo (GitHub Pages)
+    if: github.repository == 'bg-xyz/ar-cabinetry'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -2,6 +2,9 @@
 //
 //   app/Resources/Designs/<spec>.json   3D model (same shape as a job's parts.json), every finish included
 //   app/Resources/Textures/<key>/*.jpg  shared texture maps
+//   app/Resources/plywise-engine.js     the engine itself (npm run bundle first)
+//
+// The app lives in its own (private) repo checked out at ../app; without it there's nothing to do.
 //
 // Until the engine runs on the phone (JavaScriptCore), the app shows these pre-built designs.
 
@@ -19,6 +22,8 @@ const out = join(here, '..', '..', 'app', 'Resources');
 const APP_SPECS = ['vanity-36-udrawers', 'vanity-48-milan', 'vanity-30-doors', 'vanity-48-run', 'sideboard-60-legs'];
 
 const cat = loadCatalog();
+if (!existsSync(join(out, '..'))) { console.log('No app checkout at ../app: nothing to export.'); process.exit(0); }
+copyFileSync(join(here, '..', 'dist', 'plywise-engine.js'), join(out, 'plywise-engine.js'));
 for (const d of ['Designs', 'Textures']) if (existsSync(join(out, d))) rmSync(join(out, d), { recursive: true });
 mkdirSync(join(out, 'Designs'), { recursive: true });
 

@@ -1,37 +1,35 @@
-# Plywise
+# Plywise engine
 
-*Built for your walls.* **Scan a room with your iPhone, get modern European cabinetry designed for that exact space, see it life-size in AR, and send CNC-ready files to a shop.**
+*Built for your walls.* **The open-source cabinet engine behind [Plywise](https://plywise.xyz): a wall goes in, modern European cabinetry designed for it comes out, with every CNC file a shop needs to cut it.**
 
-Contemporary Euro cabinets (vanities, built-ins, closets, bookcases) are all the same parametric box, assembled in different combinations of doors and drawers. This project turns that idea into code:
+Contemporary Euro cabinets (vanities, built-ins, dressers, desks, counters) are all the same parametric plywood box, assembled in different combinations of doors and drawers. This engine turns that idea into code:
 
-- **`engine/`**: a TypeScript cabinet engine. A short spec ("36-inch floating vanity, two drawers, walnut fronts, vessel sink") becomes every panel, dado, hinge cup and drawer-slide hole, then a CNC job package: layered DXF per sheet (VCarve/Aspire-ready), cut list, hardware list, quote, and a 3D model. 47 tests, including one that checks every place two parts overlap was actually machined for the joint.
-- **`app/`**: the iPhone app (Swift, RoomPlan, RealityKit). Scan the room with LiDAR, tap a wall, and the cabinet locks onto it with real wood textures. Walk around it, open the finish menus, slide it into place.
-- **Built for flat-bed 3-axis CNC routers**: face-only machining, no edge boring, tool-grouped operations for machines without a tool changer. Any small shop with a router can cut these.
+- **Planner:** give it a wall (length, ceiling, doors, windows, fixtures) and what you're building: vanity, built-in bookcase, media console, dresser, desk, coffee bar or kitchen island. It sizes the piece to the clear space, keeps the clearances, and adds scribe fillers where it meets the walls.
+- **Proportion:** drawer stacks graduate by the golden ratio, top drawer lines line up along a run, widths split at the golden section, pulls scale to their fronts. A design critic checks every result against eight proportion rules.
+- **Every part, every hole:** panels, dados, captured backs, Blum hinge cups and plates, drawer runner holes, confirmats only on hidden sides, connector holes that line up through neighbouring boxes.
+- **CNC job package:** layered DXF per sheet (VCarve/Aspire-ready, face-only machining for flat-bed 3-axis routers without a tool changer), grain-matched fronts, cut list with scribe allowances, hardware and install kit, assembly steps, a quote, a fit-test coupon and a 3D preview.
+- **Runs anywhere:** TypeScript with no runtime dependencies. Node, the browser (the share page at plywise.xyz/d/), or JavaScriptCore inside an app (`npm run bundle` → `engine/dist/plywise-engine.js`).
 
 ![style switches](research/style_switches.png)
 
-## Try the engine
+## Try it
 ```
 cd engine
-npm install            # dev tools only (TypeScript); the engine itself has no dependencies
+npm install            # dev tools only (TypeScript, esbuild); the engine itself has no dependencies
 npm run samples        # builds every spec in engine/specs/ into jobs/
-npm test
+npm test               # 170+ tests
+node test/fuzz.ts      # random rooms through every build: refuse cleanly or build clean, no critic flags
+node tools/elevations.ts out.html   # every build across a range of walls, drawn to scale
 ```
-Open `jobs/<name>/preview.html` to spin a design around (switch finishes, open the drawers), and `jobsheet.html` for the shop sheet. Node 24+ runs the `.ts` files directly.
+Open `jobs/<name>/preview.html` to spin a design around (switch finishes, open the drawers, download a .glb for Blender) and `jobsheet.html` for the shop sheet. Node 24+ runs the `.ts` files directly.
 
 ## Docs
-- `STYLES.md`: the 8 construction "switches" every modern cabinet style reduces to
-- `engine/README.md`: engine architecture, spec format, tests
+- `engine/README.md`: architecture, spec format, tests
 - `engine/VCARVE.md`: cutting a job in VCarve + Mach3
-- `APP_PLAN.md`: how the iPhone part works (LiDAR, ARKit, RoomPlan) and the milestones
-- `CLAUDE.md` / `SESSION.md`: project handoff and history
+- `STYLES.md`: the 8 construction switches every modern cabinet style reduces to
 
-## Status
-Engine v0.x: vanities, sideboards and built-in boxes are designed, nested and exported. The first test cut is pending a hinge test on the reference shop's machine. App v0.1: scan, tap a wall, place and view (TestFlight).
-
-Hardware data (Blum CLIP top, TANDEM) comes from Blum's published specs. Values not yet confirmed are flagged in `engine/catalog/*.json` and printed on every job sheet.
+## The app
+The Plywise iPhone and Vision Pro app (room scanning, AR placement, saved rooms) is built on this engine and is not part of this repository.
 
 ## License
-Apache License 2.0. See `LICENSE`. Use it, build on it, ship it; contributions welcome.
-
-Wood textures: [ambientCG](https://ambientcg.com), CC0.
+Apache License 2.0. See `LICENSE`. Hardware data (Blum CLIP top, TANDEM) comes from Blum's published specs; values not yet confirmed are flagged in `engine/catalog/*.json` and printed on every job sheet. Wood textures: [ambientCG](https://ambientcg.com), CC0.

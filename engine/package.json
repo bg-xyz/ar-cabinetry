@@ -9,7 +9,7 @@
     "app-assets": "node src/app_assets.ts",
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc",
-    "bundle": "esbuild src/browser.ts --bundle --format=iife --target=es2020 --minify --legal-comments=none --outfile=../app/Resources/plywise-engine.js"
+    "bundle": "esbuild src/browser.ts --bundle --format=iife --target=es2020 --minify --legal-comments=none --outfile=dist/plywise-engine.js"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
